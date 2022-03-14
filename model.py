@@ -31,4 +31,3 @@ class PermutationModel(nn.Module):
         permutation_matrix = None  # TODO: from alphas and class_prem
         permuted_logits = None  # TODO: from permutation_matrix and x
         return permuted_logits
-

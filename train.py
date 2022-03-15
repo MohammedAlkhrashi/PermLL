@@ -59,12 +59,13 @@ class TrainPermutation:
         return metrics
 
     def log_stats(
-        self, running_loss, noisy_running_correct, clean_running_correct, total, epoch
+        self, running_loss, noisy_running_correct, clean_running_correct, total, epoch, set
     ):
         wandb.log({f"{set}_clean_accuracy": clean_running_correct / total})
         wandb.log({f"{set}_noisy_accuracy": noisy_running_correct / total})
         wandb.log({f"{set}_noisy_loss": running_loss / total})
-
+        print(f'{set}_clean acc = {clean_running_correct / total}')
+        print(f'{set}_noisy acc = {noisy_running_correct / total}')
     def start(self):
         self.model.to(self.device)
 
@@ -89,6 +90,7 @@ class TrainPermutation:
                 )
                 total += batch["noisy_label"].size(0)
 
+
             self.log_stats(
                 running_loss,
                 noisy_running_correct,
@@ -104,19 +106,20 @@ class TrainPermutation:
             total = 0
 
             self.model.eval()
-            for batch in tqdm(self.val_loader):
-                metrics = self.step(batch=batch, epoch=epoch, val_step=True)
+            with torch.no_grad():
+                for batch in tqdm(self.val_loader):
+                    metrics = self.step(batch=batch, epoch=epoch, val_step=True)
 
-                # TODO: quick and dirty solution for metrics, clean up.
-                running_loss += metrics["loss"]
-                _, predicted = torch.max(metrics["output"][0].detach(), 1)
-                noisy_running_correct += (
-                    (predicted == metrics["batch"]["noisy_label"]).sum().item()
-                )
-                clean_running_correct += (
-                    (predicted == metrics["batch"]["true_label"]).sum().item()
-                )
-                total += batch["noisy_label"].size(0)
+                    # TODO: quick and dirty solution for metrics, clean up.
+                    running_loss += metrics["loss"]
+                    _, predicted = torch.max(metrics["output"][0].detach(), 1)
+                    noisy_running_correct += (
+                        (predicted == metrics["batch"]["noisy_label"]).sum().item()
+                    )
+                    clean_running_correct += (
+                        (predicted == metrics["batch"]["true_label"]).sum().item()
+                    )
+                    total += batch["noisy_label"].size(0)
 
             self.log_stats(
                 running_loss,

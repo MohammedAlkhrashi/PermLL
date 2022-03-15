@@ -23,6 +23,8 @@ class GroupPicker:
         self.count = 0
 
     def next_group(self, epoch) -> List[int]:
-        next_group_index = self.count % len(self.groups)
-        self.count += 1
-        return self.groups[next_group_index]
+        # next_group_index = self.count % len(self.groups)
+        # self.count += 1
+        # return self.groups[next_group_index]
+        return [item for sublist in self.groups for item in sublist]
+

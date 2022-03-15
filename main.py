@@ -37,7 +37,7 @@ def main():
     TrainPermutation(
         model=model,
         optimizer=optimizer,
-        train_loader=loaders["train"],
+        train_loader=loaders["val"],
         val_loader=loaders["val"],
         epochs=config["epochs"],
         criterion=CrossEntropyLoss(),

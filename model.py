@@ -1,4 +1,5 @@
 from typing import List
+import torch
 import torch.nn as nn
 import timm
 
@@ -23,21 +24,40 @@ class GroupModel(nn.Module):
 
 
 class PermutationModel(nn.Module):
-    def __init__(self, num_classes: int) -> None:
+    def __init__(self, num_classes: int, num_train_samples: int, dataset_targets: list, class_init_value: float=10) -> None:
         super().__init__()
         self.num_classes = num_classes
-        self.perm_list = None  # TODO
-        self.alphas = None  # TODO
+        self.softmax = nn.Softmax(1)
+        self.all_perm = self.create_all_perm()
+        self.alpha_matrix = nn.Parameter(torch.ones(num_train_samples, num_classes), requires_grad=False)
+        self.alpha_matrix.scatter_(1, torch.tensor(dataset_targets).unsqueeze(1), class_init_value)
+        self.alpha_matrix.requires_grad = True
 
-    def forward(self, x, target, sample_index):
-        return x
+    def forward(self, logits, target, sample_index):
         if not self.training:
-            return x
-        class_perm = self.perm_list[target]
-        alphas = self.alphas[sample_index]
-        permutation_matrix = None  # TODO: from alphas and class_prem
-        permuted_logits = None  # TODO: from permutation_matrix and x
+            return logits
+        perm = self.all_perm[target]
+        alpha = self.alpha_matrix[sample_index]
+        permutation_matrices = (self.softmax(alpha.unsqueeze(-1).unsqueeze(-1))*perm).sum(1)
+        permuted_logits = torch.matmul(permutation_matrices, logits.unsqueeze(-1)).squeeze(-1)
         return permuted_logits
+
+    def create_all_perm(self):
+        classes_set = set(range(self.num_classes))
+        I = torch.eye(self.num_classes)
+        perm_list = []
+        for target in classes_set:
+            l1 = list(classes_set - set([target]))
+            one_class_perm_list = []
+            for idx in range(len(l1)+1):
+                l2 = l1.copy()
+                l2.insert(idx,target)
+                perm = I[l2]
+                one_class_perm_list.append(perm)
+            one_class_perm = torch.stack(one_class_perm_list)
+            perm_list.append(one_class_perm)
+        perm = torch.stack(perm_list)
+        return perm
 
 
 def create_group_model(num_of_networks, pretrained, num_classes, model_name="resnet18"):

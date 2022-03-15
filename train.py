@@ -1,8 +1,10 @@
 from turtle import forward
 from typing import List
+
 import torch
 import torch.nn as nn
 
+from group_utils import GroupLoss, GroupPicker
 from model import GroupModel
 
 
@@ -11,18 +13,6 @@ def handle_stats(model, image, label, output, loss, epoch, stats_name):
     handle stats, can be converted into a class or a hook. 
     """
     raise NotImplemented
-
-
-class GroupLoss(nn.Module):
-    def __init__(self, criterion: nn.Module):
-        super().__init__()
-        self.criterion: nn.Module = criterion
-
-    def forward(self, logits, target):
-        loss = 0
-        for logit in range(logits):
-            loss += self.criterion(logit, target)
-        return loss
 
 
 class TrainPermutation:
@@ -53,19 +43,18 @@ class TrainPermutation:
         batch = {key: value.to(self.device) for key, value in batch}
         self.optimizer.zero_grad()
         next_group: List[int] = self.group_picker.next_group(epoch)
-        output = self.model(batch["image"], next_group)
+        output = self.model(batch["image"], network_indices=next_group)
         loss = self.criterion(output, batch["label"])
         if not val_step:
             loss.backward()
             self.optimizer.step()
 
-        # TODO: handle stats, inside a class or a list of hooks. 
+        # TODO: handle stats, inside a class or a list of hooks.
         handle_stats(
             self.model, batch["image"], batch["label"], output, loss, epoch, "train"
         )
 
     def start(self):
-        self.model.to(self.device)
         for epoch in range(self.epochs):
             self.model.train()
             for batch in self.train_loader:
@@ -74,13 +63,4 @@ class TrainPermutation:
             self.model.eval()
             for batch in self.val_loader:
                 self.step(batch=batch, epoch=epoch, val_step=True)
-
-
-class GroupPicker:
-    def __init__(self, total_len) -> None:
-        self.total_len = total_len
-        self.groups: List[List[int]] = None
-
-    def next_group(self, epoch) -> List[int]:
-        pass
 

@@ -8,7 +8,7 @@ class GroupModel(nn.Module):
         self.perm_model = PermutationModel(num_classes)
         super().__init__()
 
-    def forward(self, x, target, sample_index, network_indices):
+    def forward(self, x, target, sample_index, network_indices, val_step=False):
         cur_models = self.models[network_indices]
         outputs = []
         for model in cur_models:
@@ -29,6 +29,8 @@ class PermutationModel(nn.Module):
         self.alphas = None  # TODO
 
     def forward(self, x, target, sample_index):
+        if self.training:
+            return x
         class_perm = self.perm_list[target]
         alphas = self.alphas[sample_index]
         permutation_matrix = None  # TODO: from alphas and class_prem

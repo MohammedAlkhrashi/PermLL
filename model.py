@@ -29,15 +29,17 @@ class PermutationModel(nn.Module):
         self.num_classes = num_classes
         num_train_samples = len(dataset_targets)
         self.softmax = nn.Softmax(1)
-        self.all_perm = self.create_all_perm()
         self.alpha_matrix = nn.Parameter(torch.ones(num_train_samples, num_classes), requires_grad=False)
         self.alpha_matrix.scatter_(1, torch.tensor(dataset_targets).unsqueeze(1), class_init_value)
         self.alpha_matrix.requires_grad = True
+        self.all_perm = self.create_all_perm()
 
     def forward(self, logits, target, sample_index):
+        # return logits
         if not self.training:
             return logits
         perm = self.all_perm[target]
+        perm = perm.to(self.alpha_matrix.device)
         alpha = self.alpha_matrix[sample_index]
         permutation_matrices = (self.softmax(alpha.unsqueeze(-1).unsqueeze(-1))*perm).sum(1)
         permuted_logits = torch.matmul(permutation_matrices, logits.unsqueeze(-1)).squeeze(-1)

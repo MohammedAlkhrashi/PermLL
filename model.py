@@ -29,7 +29,7 @@ class PermutationModel(nn.Module):
         self.alphas = None  # TODO
 
     def forward(self, x, target, sample_index):
-        if self.training:
+        if not self.training:
             return x
         class_perm = self.perm_list[target]
         alphas = self.alphas[sample_index]

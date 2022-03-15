@@ -58,20 +58,72 @@ class TrainPermutation:
         metrics = {"batch": batch, "loss": loss, "output": output}
         return metrics
 
-    def log_stats(self, metrics, epoch, set):
-        wandb.log({"epoch": epoch, "loss": metrics["loss"]})  # step=example_ct)
-        # print(f"Loss after " + str(example_ct).zfill(5) + f" examples: {metrics['loss']:.3f}")
+    def log_stats(
+        self, running_loss, noisy_running_correct, clean_running_correct, total, epoch
+    ):
+        wandb.log({f"{set}_clean_accuracy": clean_running_correct / total})
+        wandb.log({f"{set}_noisy_accuracy": noisy_running_correct / total})
+        wandb.log({f"{set}_noisy_loss": running_loss / total})
 
     def start(self):
         self.model.to(self.device)
+
         for epoch in range(self.epochs):
+            running_loss = 0
+            noisy_running_correct = 0
+            clean_running_correct = 0
+            total = 0
+
             self.model.train()
             for batch in tqdm(self.train_loader):
                 metrics = self.step(batch=batch, epoch=epoch)
-                self.log_stats(metrics, epoch, set="train")
+
+                # TODO: quick and dirty solution for metrics, clean up.
+                running_loss += metrics["loss"]
+                _, predicted = torch.max(metrics["output"][0].detach(), 1)
+                noisy_running_correct += (
+                    (predicted == metrics["batch"]["noisy_label"]).sum().item()
+                )
+                clean_running_correct += (
+                    (predicted == metrics["batch"]["true_label"]).sum().item()
+                )
+                total += batch["noisy_label"].size(0)
+
+            self.log_stats(
+                running_loss,
+                noisy_running_correct,
+                clean_running_correct,
+                total,
+                epoch,
+                set="train",
+            )
+
+            running_loss = 0
+            noisy_running_correct = 0
+            clean_running_correct = 0
+            total = 0
 
             self.model.eval()
             for batch in tqdm(self.val_loader):
                 metrics = self.step(batch=batch, epoch=epoch, val_step=True)
-                self.log_stats(metrics, epoch, set="val")
+
+                # TODO: quick and dirty solution for metrics, clean up.
+                running_loss += metrics["loss"]
+                _, predicted = torch.max(metrics["output"][0].detach(), 1)
+                noisy_running_correct += (
+                    (predicted == metrics["batch"]["noisy_label"]).sum().item()
+                )
+                clean_running_correct += (
+                    (predicted == metrics["batch"]["true_label"]).sum().item()
+                )
+                total += batch["noisy_label"].size(0)
+
+            self.log_stats(
+                running_loss,
+                noisy_running_correct,
+                clean_running_correct,
+                total,
+                epoch,
+                set="val",
+            )
 

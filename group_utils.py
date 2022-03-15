@@ -18,16 +18,11 @@ class GroupLoss(nn.Module):
 
 class GroupPicker:
     def __init__(self, total_len) -> None:
-        """_summary_
-
-        Args:
-            total_len (_type_): _description_
-        """
         self.total_len = total_len
-        self.groups: List[List[int]] = None
+        self.groups: List[List[int]] = [[i] for i in range(total_len)]
         self.count = 0
 
     def next_group(self, epoch) -> List[int]:
-        # return self.groups[epoch % len(self.groups)]
+        next_group_index = self.count % len(self.groups)
         self.count += 1
-        return self.groups[self.count % len(self.groups)]
+        return self.groups[next_group_index]

@@ -1,18 +1,19 @@
-from turtle import forward
 from typing import List
 
 import torch
 import torch.nn as nn
+from tqdm import tqdm
+import wandb
 
 from group_utils import GroupLoss, GroupPicker
 from model import GroupModel
 
 
-def handle_stats(model, image, label, output, loss, epoch, stats_name):
+def handle_stats(model, batch, output, loss, epoch, stats_name):
     """
     handle stats, can be converted into a class or a hook. 
     """
-    raise NotImplemented
+    pass
 
 
 class TrainPermutation:
@@ -26,7 +27,7 @@ class TrainPermutation:
         criterion,
         gpu_num="0",
     ) -> None:
-        self.model: nn.Module = model.to(self.device)
+        self.model: GroupModel = model
         self.optimizer: torch.optim.Optimizer = optimizer
         self.criterion: nn.Module = GroupLoss(criterion)
         self.epochs = epochs
@@ -34,33 +35,43 @@ class TrainPermutation:
         self.train_loader = train_loader
         self.val_loader = val_loader
 
-        self.group_picker = GroupPicker(total_len=len(self.model))
         self.device = torch.device(
             f"cuda:{gpu_num}" if torch.cuda.is_available() else "cpu"
         )
+        self.group_picker = GroupPicker(total_len=len(self.model))
 
     def step(self, batch, epoch, val_step=False):
-        batch = {key: value.to(self.device) for key, value in batch}
+        batch = {key: value.to(self.device) for key, value in batch.items()}
         self.optimizer.zero_grad()
         next_group: List[int] = self.group_picker.next_group(epoch)
-        output = self.model(batch["image"], network_indices=next_group)
-        loss = self.criterion(output, batch["label"])
+        output = self.model(
+            batch["image"],
+            target=batch["noisy_label"],
+            sample_index=batch["sample_index"],
+            network_indices=next_group,
+        )
+        loss = self.criterion(output, batch["noisy_label"])
         if not val_step:
             loss.backward()
             self.optimizer.step()
 
-        # TODO: handle stats, inside a class or a list of hooks.
-        handle_stats(
-            self.model, batch["image"], batch["label"], output, loss, epoch, "train"
-        )
+        metrics = {"batch": batch, "loss": loss, "output": output}
+        return metrics
+
+    def log_stats(self, metrics, epoch, set):
+        wandb.log({"epoch": epoch, "loss": metrics["loss"]})  # step=example_ct)
+        # print(f"Loss after " + str(example_ct).zfill(5) + f" examples: {metrics['loss']:.3f}")
 
     def start(self):
+        self.model.to(self.device)
         for epoch in range(self.epochs):
             self.model.train()
-            for batch in self.train_loader:
-                self.step(batch=batch, epoch=epoch)
+            for batch in tqdm(self.train_loader):
+                metrics = self.step(batch=batch, epoch=epoch)
+                self.log_stats(metrics, epoch, set="train")
 
             self.model.eval()
-            for batch in self.val_loader:
-                self.step(batch=batch, epoch=epoch, val_step=True)
+            for batch in tqdm(self.val_loader):
+                metrics = self.step(batch=batch, epoch=epoch, val_step=True)
+                self.log_stats(metrics, epoch, set="val")
 

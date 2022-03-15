@@ -2,7 +2,7 @@ from typing import List
 import torch.nn as nn
 
 
-class Model(nn.Module):
+class GroupModel(nn.Module):
     def __init__(self, models: List[nn.Module], num_classes: int) -> None:
         self.models = models
         self.perm_model = PermutationModel(num_classes)
@@ -16,6 +16,9 @@ class Model(nn.Module):
             permuted_logits = self.perm_model(logits, target, sample_index)
             outputs.append(permuted_logits)
         return outputs
+
+    def __len__(self):
+        return len(self.models)
 
 
 class PermutationModel(nn.Module):

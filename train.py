@@ -1,11 +1,34 @@
+from turtle import forward
+from typing import List
 import torch
-from torch.nn import nn
+import torch.nn as nn
+
+from model import GroupModel
+
+
+def handle_stats(model, image, label, output, loss, epoch, stats_name):
+    """
+    handle stats, can be converted into a class or a hook. 
+    """
+    raise NotImplemented
+
+
+class GroupLoss(nn.Module):
+    def __init__(self, criterion: nn.Module):
+        super().__init__()
+        self.criterion: nn.Module = criterion
+
+    def forward(self, logits, target):
+        loss = 0
+        for logit in range(logits):
+            loss += self.criterion(logit, target)
+        return loss
 
 
 class TrainPermutation:
     def __init__(
         self,
-        model,
+        model: GroupModel,
         optimizer,
         train_loader,
         val_loader,
@@ -13,23 +36,51 @@ class TrainPermutation:
         criterion,
         gpu_num="0",
     ) -> None:
-        self.device = torch.device(
-            f"cuda:{gpu_num}" if torch.cuda.is_available() else "cpu"
-        )
         self.model: nn.Module = model.to(self.device)
         self.optimizer: torch.optim.Optimizer = optimizer
-        self.criterion = criterion
+        self.criterion: nn.Module = GroupLoss(criterion)
         self.epochs = epochs
 
         self.train_loader = train_loader
         self.val_loader = val_loader
 
-    def start(self):
-        for epoch in range(self.epochs):
+        self.group_picker = GroupPicker(total_len=len(self.model))
+        self.device = torch.device(
+            f"cuda:{gpu_num}" if torch.cuda.is_available() else "cpu"
+        )
 
+    def step(self, batch, epoch, val_step=False):
+        batch = {key: value.to(self.device) for key, value in batch}
+        self.optimizer.zero_grad()
+        next_group: List[int] = self.group_picker.next_group(epoch)
+        output = self.model(batch["image"], next_group)
+        loss = self.criterion(output, batch["label"])
+        if not val_step:
+            loss.backward()
+            self.optimizer.step()
+
+        # TODO: handle stats, inside a class or a list of hooks. 
+        handle_stats(
+            self.model, batch["image"], batch["label"], output, loss, epoch, "train"
+        )
+
+    def start(self):
+        self.model.to(self.device)
+        for epoch in range(self.epochs):
             self.model.train()
-            for (image, label) in self.train_loader:
-                self.optimizer.zero_grad()
-                output = self.model(image)
-                loss = self.criterion(output, label)
+            for batch in self.train_loader:
+                self.step(batch=batch, epoch=epoch)
+
+            self.model.eval()
+            for batch in self.val_loader:
+                self.step(batch=batch, epoch=epoch, val_step=True)
+
+
+class GroupPicker:
+    def __init__(self, total_len) -> None:
+        self.total_len = total_len
+        self.groups: List[List[int]] = None
+
+    def next_group(self, epoch) -> List[int]:
+        pass
 

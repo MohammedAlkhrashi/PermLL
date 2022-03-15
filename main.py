@@ -31,7 +31,7 @@ def main():
         upperbound=config["upperbound_exp"],
     )
     model: GroupModel = create_group_model(
-        config["num_networks"], num_classes=10, pretrained=config["pretrained"]
+        config["num_networks"], num_classes=10, pretrained=config["pretrained"], dataset_targets=loaders['train'].dataset.targets
     )
     optimizer = SGD(model.parameters(), lr=config["learning_rate"])
     TrainPermutation(

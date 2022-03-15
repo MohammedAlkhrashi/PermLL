@@ -5,10 +5,10 @@ import timm
 
 
 class GroupModel(nn.Module):
-    def __init__(self, models: nn.ModuleList, num_classes: int) -> None:
+    def __init__(self, models: nn.ModuleList, num_classes: int, dataset_targets) -> None:
         super().__init__()
         self.models = models
-        self.perm_model = PermutationModel(num_classes)
+        self.perm_model = PermutationModel(num_classes, dataset_targets)
 
     def forward(self, x, target, sample_index, network_indices):
         outputs = []
@@ -24,9 +24,10 @@ class GroupModel(nn.Module):
 
 
 class PermutationModel(nn.Module):
-    def __init__(self, num_classes: int, num_train_samples: int, dataset_targets: list, class_init_value: float=10) -> None:
+    def __init__(self, num_classes: int, dataset_targets: list, class_init_value: float=10) -> None:
         super().__init__()
         self.num_classes = num_classes
+        num_train_samples = len(dataset_targets)
         self.softmax = nn.Softmax(1)
         self.all_perm = self.create_all_perm()
         self.alpha_matrix = nn.Parameter(torch.ones(num_train_samples, num_classes), requires_grad=False)
@@ -60,13 +61,13 @@ class PermutationModel(nn.Module):
         return perm
 
 
-def create_group_model(num_of_networks, pretrained, num_classes, model_name="resnet18"):
+def create_group_model(num_of_networks, pretrained, num_classes, dataset_targets, model_name="resnet18"):
     models = nn.ModuleList()
     for i in range(num_of_networks):
         model = timm.create_model(
             model_name, pretrained=pretrained, num_classes=num_classes
         )
         models.append(model)
-    group_model = GroupModel(models, num_classes)
+    group_model = GroupModel(models, num_classes, dataset_targets)
     return group_model
 

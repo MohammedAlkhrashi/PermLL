@@ -39,4 +39,5 @@ class CallbackNoisyStatistics(Callback):
         wandb.log({f"{name}_clean_accuracy": self.clean_running_correct / self.total})
         wandb.log({f"{name}_noisy_accuracy": self.noisy_running_correct / self.total})
         wandb.log({f"{name}_noisy_loss": self.running_loss / self.total})
-
+        print(f'{set}_clean acc = {self.clean_running_correct / self.total}')
+        print(f'{set}_noisy acc = {self.noisy_running_correct / self.total}')

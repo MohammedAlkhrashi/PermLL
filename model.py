@@ -1,7 +1,6 @@
-from typing import List
+import timm
 import torch
 import torch.nn as nn
-import timm
 
 
 class GroupModel(nn.Module):
@@ -65,7 +64,7 @@ class PermutationModel(nn.Module):
 
 def create_group_model(num_of_networks, pretrained, num_classes, dataset_targets, model_name="resnet18"):
     models = nn.ModuleList()
-    for i in range(num_of_networks):
+    for _ in range(num_of_networks):
         model = timm.create_model(
             model_name, pretrained=pretrained, num_classes=num_classes
         )

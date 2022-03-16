@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 import wandb
+from callbacks import Callback
 
 from group_utils import GroupLoss, GroupPicker
 from model import GroupModel
@@ -26,6 +27,7 @@ class TrainPermutation:
         epochs,
         criterion,
         gpu_num="0",
+        callbacks=List[Callback],
     ) -> None:
         self.model: GroupModel = model
         self.optimizer: torch.optim.Optimizer = optimizer
@@ -39,6 +41,7 @@ class TrainPermutation:
             f"cuda:{gpu_num}" if torch.cuda.is_available() else "cpu"
         )
         self.group_picker = GroupPicker(total_len=len(self.model))
+        self.callbacks: List[Callback] = callbacks
 
     def step(self, batch, epoch, val_step=False):
         batch = {key: value.to(self.device) for key, value in batch.items()}
@@ -58,72 +61,27 @@ class TrainPermutation:
         metrics = {"batch": batch, "loss": loss, "output": output}
         return metrics
 
-    def log_stats(
-        self, running_loss, noisy_running_correct, clean_running_correct, total, epoch
-    ):
-        wandb.log({f"{set}_clean_accuracy": clean_running_correct / total})
-        wandb.log({f"{set}_noisy_accuracy": noisy_running_correct / total})
-        wandb.log({f"{set}_noisy_loss": running_loss / total})
+    def one_epoch(self, epoch, val_epoch=False):
+        if val_epoch:
+            loader = self.val_loader
+            name = "val"
+        else:
+            loader = self.train_loader
+            name = "train"
+
+        for batch in tqdm(loader, desc=f"Running {name.capitalize()} Epoch"):
+            metrics = self.step(batch=batch, epoch=epoch, val_step=val_epoch)
+            for callback in self.callbacks:
+                callback.on_step_end(metrics, name)
+
+        for callback in self.callbacks:
+            callback.on_epoch_end(epoch, name)
 
     def start(self):
         self.model.to(self.device)
-
         for epoch in range(self.epochs):
-            running_loss = 0
-            noisy_running_correct = 0
-            clean_running_correct = 0
-            total = 0
-
             self.model.train()
-            for batch in tqdm(self.train_loader):
-                metrics = self.step(batch=batch, epoch=epoch)
-
-                # TODO: quick and dirty solution for metrics, clean up.
-                running_loss += metrics["loss"]
-                _, predicted = torch.max(metrics["output"][0].detach(), 1)
-                noisy_running_correct += (
-                    (predicted == metrics["batch"]["noisy_label"]).sum().item()
-                )
-                clean_running_correct += (
-                    (predicted == metrics["batch"]["true_label"]).sum().item()
-                )
-                total += batch["noisy_label"].size(0)
-
-            self.log_stats(
-                running_loss,
-                noisy_running_correct,
-                clean_running_correct,
-                total,
-                epoch,
-                set="train",
-            )
-
-            running_loss = 0
-            noisy_running_correct = 0
-            clean_running_correct = 0
-            total = 0
-
+            self.one_epoch(epoch, val_epoch=False)
             self.model.eval()
-            for batch in tqdm(self.val_loader):
-                metrics = self.step(batch=batch, epoch=epoch, val_step=True)
-
-                # TODO: quick and dirty solution for metrics, clean up.
-                running_loss += metrics["loss"]
-                _, predicted = torch.max(metrics["output"][0].detach(), 1)
-                noisy_running_correct += (
-                    (predicted == metrics["batch"]["noisy_label"]).sum().item()
-                )
-                clean_running_correct += (
-                    (predicted == metrics["batch"]["true_label"]).sum().item()
-                )
-                total += batch["noisy_label"].size(0)
-
-            self.log_stats(
-                running_loss,
-                noisy_running_correct,
-                clean_running_correct,
-                total,
-                epoch,
-                set="val",
-            )
+            self.one_epoch(epoch, val_epoch=True)
 

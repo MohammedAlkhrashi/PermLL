@@ -1,6 +1,7 @@
 import wandb
 from torch.nn.modules import CrossEntropyLoss
 from torch.optim import SGD
+from callbacks import CallbackNoisyStatistics
 
 from dataset import cifar_10_dataloaders
 from model import GroupModel, create_group_model
@@ -31,17 +32,22 @@ def main():
         upperbound=config["upperbound_exp"],
     )
     model: GroupModel = create_group_model(
-        config["num_networks"], num_classes=10, pretrained=config["pretrained"], dataset_targets=loaders['train'].dataset.targets
+        config["num_networks"],
+        num_classes=10,
+        pretrained=config["pretrained"],
+        dataset_targets=loaders["train"].dataset.dataset.targets,
     )
     optimizer = SGD(model.parameters(), lr=config["learning_rate"])
+    callbacks = [CallbackNoisyStatistics()]
     TrainPermutation(
         model=model,
         optimizer=optimizer,
-        train_loader=loaders["val"],
+        train_loader=loaders["train"],
         val_loader=loaders["val"],
         epochs=config["epochs"],
         criterion=CrossEntropyLoss(),
         gpu_num=config["gpu_num"],
+        callbacks=callbacks,
     ).start()
 
 

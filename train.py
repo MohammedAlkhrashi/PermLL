@@ -3,18 +3,10 @@ from typing import List
 import torch
 import torch.nn as nn
 from tqdm import tqdm
-import wandb
-from callbacks import Callback
 
+from callbacks import Callback
 from group_utils import GroupLoss, GroupPicker
 from model import GroupModel
-
-
-def handle_stats(model, batch, output, loss, epoch, stats_name):
-    """
-    handle stats, can be converted into a class or a hook. 
-    """
-    pass
 
 
 class TrainPermutation:

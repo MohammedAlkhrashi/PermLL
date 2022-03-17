@@ -77,5 +77,6 @@ class TrainPermutation:
             self.model.train()
             self.one_epoch(epoch, val_epoch=False)
             self.model.eval()
-            self.one_epoch(epoch, val_epoch=True)
+            with torch.no_grad():
+                self.one_epoch(epoch, val_epoch=True)
 

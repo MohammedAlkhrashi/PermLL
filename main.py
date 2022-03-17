@@ -42,7 +42,7 @@ def main():
         config["networks_per_group"] * config["num_groups"],
         num_classes=10,
         pretrained=config["pretrained"],
-        dataset_targets=loaders["train"].dataset.dataset.targets,
+        dataset_targets=loaders["train"].dataset.noisy_labels,
     )
     optimizer = create_group_optimizer(
         model,

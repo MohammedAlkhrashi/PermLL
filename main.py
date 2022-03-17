@@ -35,7 +35,7 @@ def main():
         config["num_networks"],
         num_classes=10,
         pretrained=config["pretrained"],
-        dataset_targets=loaders["train"].dataset.dataset.targets,
+        dataset_targets=loaders["train"].dataset.noisy_labels,
     )
     optimizer = SGD(model.parameters(), lr=config["learning_rate"])
     callbacks = [CallbackNoisyStatistics()]

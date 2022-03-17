@@ -23,11 +23,13 @@ class CallbackNoisyStatistics(Callback):
     def on_step_end(self, metrics, name):
         self.running_loss += metrics["loss"]
         _, predicted = torch.max(metrics["output"][0].detach(), 1)
+        _, prediction_before_perm = torch.max(metrics["unpermuted_logits"][0].detach(), 1)
+
         self.noisy_running_correct += (
             (predicted == metrics["batch"]["noisy_label"]).sum().item()
         )
         self.clean_running_correct += (
-            (predicted == metrics["batch"]["true_label"]).sum().item()
+            (prediction_before_perm == metrics["batch"]["true_label"]).sum().item()
         )
         self.total += metrics["batch"]["noisy_label"].size(0)
 

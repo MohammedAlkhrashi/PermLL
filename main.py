@@ -11,8 +11,8 @@ from train import TrainPermutation
 def get_config():
     config = dict()
     # Training
-    config["networks_lr"] = 0.001
-    config["permutation_lr"] = 0.001
+    config["networks_lr"] = 0.05
+    config["permutation_lr"] = 0.01
     config["epochs"] = 100
     config["batch_size"] = 16
     config["pretrained"] = False

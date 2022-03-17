@@ -41,7 +41,7 @@ class TrainPermutation:
         next_group: List[int] = self.group_picker.next_group(val_step)
 
         self.optimizer.zero_grad()
-        output = self.model(
+        output, unpermuted_logits = self.model(
             batch["image"],
             target=batch["noisy_label"],
             sample_index=batch["sample_index"],
@@ -52,7 +52,7 @@ class TrainPermutation:
             loss.backward()
             self.optimizer.step()
 
-        metrics = {"batch": batch, "loss": loss, "output": output}
+        metrics = {"batch": batch, "loss": loss, "output": output, "unpermuted_logits": unpermuted_logits}
         return metrics
 
     def one_epoch(self, epoch, val_epoch=False):

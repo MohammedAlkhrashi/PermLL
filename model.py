@@ -13,12 +13,14 @@ class GroupModel(nn.Module):
 
     def forward(self, x, target, sample_index, network_indices):
         outputs = []
+        all_unpermuted_logits = []
         for index in network_indices:
             model = self.models[index]
             logits = model(x)
             permuted_logits = self.perm_model(logits, target, sample_index)
             outputs.append(permuted_logits)
-        return outputs
+            all_unpermuted_logits.append(logits)
+        return outputs, all_unpermuted_logits
 
     def __len__(self):
         return len(self.models)
@@ -57,19 +59,22 @@ class PermutationModel(nn.Module):
         return permuted_logits
 
     def create_all_perm(self):
-        classes_set = set(range(self.num_classes))
+        classes_list = list(range(self.num_classes))
         I = torch.eye(self.num_classes)
         perm_list = []
-        for target in classes_set:
-            l1 = list(classes_set - set([target]))
+        for idx1 in range(self.num_classes):
             one_class_perm_list = []
-            for idx in range(len(l1) + 1):
-                l2 = l1.copy()
-                l2.insert(idx, target)
-                perm = I[l2]
+            for idx2 in range(self.num_classes):
+                l = classes_list.copy()
+                l = swap_positions(l, idx1, idx2)
+                perm = I[l]
                 one_class_perm_list.append(perm)
             one_class_perm = torch.stack(one_class_perm_list)
             perm_list.append(one_class_perm)
         perm = torch.stack(perm_list)
         return perm
+        
 
+def swap_positions(list_, pos1, pos2):
+    list_[pos1], list_[pos2] = list_[pos2], list_[pos1]
+    return list_

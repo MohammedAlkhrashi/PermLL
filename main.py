@@ -1,24 +1,31 @@
 import wandb
 from torch.nn.modules import CrossEntropyLoss
-from torch.optim import SGD
 from callbacks import CallbackNoisyStatistics
 
 from dataset import cifar_10_dataloaders
-from model import GroupModel, create_group_model
+from group_utils import GroupPicker, create_group_model, create_group_optimizer
+from model import GroupModel
 from train import TrainPermutation
 
 
 def get_config():
     config = dict()
-    config["learning_rate"] = 0.001
+    # Training
+    config["networks_lr"] = 0.001
+    config["permutation_lr"] = 0.001
     config["epochs"] = 100
     config["batch_size"] = 16
+    config["pretrained"] = False
+    # Noise related
     config["noise"] = 0
+    config["upperbound_exp"] = False
+    # Group related
+    config["networks_per_group"] = 5
+    config["num_groups"] = 3
+    config["change_every"] = 3
+    # General config
     config["gpu_num"] = "0"
     config["num_workers"] = 8
-    config["upperbound_exp"] = False
-    config["num_networks"] = 3
-    config["pretrained"] = False
     return config
 
 
@@ -32,13 +39,24 @@ def main():
         upperbound=config["upperbound_exp"],
     )
     model: GroupModel = create_group_model(
-        config["num_networks"],
+        config["networks_per_group"] * config["num_groups"],
         num_classes=10,
         pretrained=config["pretrained"],
         dataset_targets=loaders["train"].dataset.dataset.targets,
     )
-    optimizer = SGD(model.parameters(), lr=config["learning_rate"])
+    optimizer = create_group_optimizer(
+        model,
+        networks_lr=config["networks_lr"],
+        permutation_lr=config["permutation_lr"],
+    )
     callbacks = [CallbackNoisyStatistics()]
+    group_picker = GroupPicker(
+        networks_per_group=config["networks_per_group"],
+        num_groups=config["num_groups"],
+        change_every=config["change_every"]
+        if config["change_every"] != -1
+        else len(loaders["train"]),
+    )
     TrainPermutation(
         model=model,
         optimizer=optimizer,
@@ -47,6 +65,7 @@ def main():
         epochs=config["epochs"],
         criterion=CrossEntropyLoss(),
         gpu_num=config["gpu_num"],
+        group_picker=group_picker,
         callbacks=callbacks,
     ).start()
 

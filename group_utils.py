@@ -24,7 +24,7 @@ class GroupLoss(nn.Module):
 class GroupPicker:
     def __init__(self, networks_per_group, num_groups, change_every) -> None:
         self.groups: List[List[int]] = self.create_new_groups(
-            num_groups, networks_per_group
+            networks_per_group, num_groups
         )
         self.change_every = change_every
         self.count = 0
@@ -98,3 +98,47 @@ def create_group_model(
     group_model = GroupModel(models, num_classes, dataset_targets)
     return group_model
 
+
+def test_group_picker():
+    def test_picker(networks_per_group, num_groups, change_every):
+        group_picker = GroupPicker(
+            networks_per_group=networks_per_group,
+            num_groups=num_groups,
+            change_every=change_every,
+        )
+        assert num_groups == len(
+            group_picker.groups
+        ), f"{num_groups} == {len(group_picker.groups)}"
+
+        indices = []
+        for group in group_picker.groups:
+            assert len(group) == networks_per_group
+            indices.extend(group)
+        assert set(indices) == set(range(networks_per_group * num_groups))
+
+        if num_groups != 1:
+            count = 0
+            prev_group = []
+            for _ in range(change_every * 100):
+                cur_group = group_picker.next_group()
+                if count % change_every == 0:
+                    assert cur_group != prev_group
+                else:
+                    assert cur_group == prev_group
+                prev_group = cur_group
+                count += 1
+        assert len(group_picker.all_groups()) == num_groups * networks_per_group
+        assert set(group_picker.all_groups()) == set(
+            range(num_groups * networks_per_group)
+        )
+
+    test_picker(15, 10, 1)
+    test_picker(3, 5, 5)
+    test_picker(1, 100, 100)
+    test_picker(100, 1, 1)
+    test_picker(50, 50, 5)
+    test_picker(6, 33, 77)
+
+
+if __name__ == "__main__":
+    test_group_picker()

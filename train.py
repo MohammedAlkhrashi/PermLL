@@ -52,19 +52,24 @@ class TrainPermutation:
             loss.backward()
             self.optimizer.step()
 
-        metrics = {"batch": batch, "loss": loss, "output": output, "unpermuted_logits": unpermuted_logits, "alpha_matrix": self.model.perm_model.alpha_matrix, "all_clean_labels": self.train_loader.dataset.original_labels, "all_noisy_labels": self.train_loader.dataset.noisy_labels}
+        metrics = {
+            "batch": batch,
+            "loss": loss,
+            "output": output,
+            "unpermuted_logits": unpermuted_logits,
+            "alpha_matrix": self.model.perm_model.alpha_matrix,
+            "all_clean_labels": self.train_loader.dataset.original_labels,
+            "all_noisy_labels": self.train_loader.dataset.noisy_labels,
+        }
         return metrics
 
     def one_epoch(self, epoch, val_epoch=False):
-        if val_epoch:
-            loader = self.val_loader
-            name = "val"
-        else:
-            loader = self.train_loader
-            name = "train"
+        loader = self.val_loader if val_epoch else self.train_loader
+        name = "val" if val_epoch else "train"
 
         for batch in tqdm(loader, desc=f"Running {name.capitalize()} Epoch"):
             metrics = self.step(batch=batch, epoch=epoch, val_step=val_epoch)
+
             for callback in self.callbacks:
                 callback.on_step_end(metrics, name)
 
@@ -79,4 +84,3 @@ class TrainPermutation:
             self.model.eval()
             with torch.no_grad():
                 self.one_epoch(epoch, val_epoch=True)
-

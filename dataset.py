@@ -29,12 +29,12 @@ def apply_noise(labels: Tensor, noise: float):
 class NoisyDataset(Dataset):
     def __init__(self, dataset: Dataset, noise=0.3, upperbound=False) -> None:
         self.dataset = dataset
-        self.orginal_labels = torch.tensor(dataset.targets)
-        self.noisy_labels = apply_noise(self.orginal_labels, noise)
-        self.same_indices = torch.eq(self.orginal_labels, self.noisy_labels)
+        self.original_labels = torch.tensor(dataset.targets)
+        self.noisy_labels = apply_noise(self.original_labels, noise)
+        self.same_indices = torch.eq(self.original_labels, self.noisy_labels)
 
         if upperbound:
-            self.orginal_labels = self.orginal_labels[self.same_indices]
+            self.original_labels = self.original_labels[self.same_indices]
             self.noisy_labels = self.noisy_labels[self.same_indices]
             self.dataset.data = self.dataset.data[self.same_indices]
             self.dataset.targets = list(
@@ -42,7 +42,7 @@ class NoisyDataset(Dataset):
             )
         if noise == 0:
             print("Noise set to 0")
-            assert torch.equal(self.orginal_labels, self.noisy_labels)
+            assert torch.equal(self.original_labels, self.noisy_labels)
 
     def __getitem__(self, index):
         item = dict()

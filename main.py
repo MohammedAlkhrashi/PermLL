@@ -1,6 +1,6 @@
 import wandb
 from torch.nn.modules import CrossEntropyLoss
-from callbacks import CallbackNoisyStatistics
+from callbacks import CallbackNoisyStatistics, CallbackPermutationStats
 
 from dataset import cifar_10_dataloaders
 from group_utils import GroupPicker, create_group_model, create_group_optimizer
@@ -12,20 +12,20 @@ def get_config():
     config = dict()
     # Training
     config["networks_lr"] = 0.05
-    config["permutation_lr"] = 0.01
-    config["epochs"] = 100
-    config["batch_size"] = 16
+    config["permutation_lr"] = 100/(10*1)
+    config["epochs"] = 200
+    config["batch_size"] = 32
     config["pretrained"] = False
     # Noise related
-    config["noise"] = 0
+    config["noise"] = 0.3
     config["upperbound_exp"] = False
     # Group related
-    config["networks_per_group"] = 5
-    config["num_groups"] = 3
+    config["networks_per_group"] = 1
+    config["num_groups"] = 10
     config["change_every"] = 3
     # General config
     config["gpu_num"] = "0"
-    config["num_workers"] = 8
+    config["num_workers"] = 15
     return config
 
 
@@ -49,7 +49,7 @@ def main():
         networks_lr=config["networks_lr"],
         permutation_lr=config["permutation_lr"],
     )
-    callbacks = [CallbackNoisyStatistics()]
+    callbacks = [CallbackNoisyStatistics(), CallbackPermutationStats()]
     group_picker = GroupPicker(
         networks_per_group=config["networks_per_group"],
         num_groups=config["num_groups"],

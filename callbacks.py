@@ -1,3 +1,5 @@
+from math import perm
+from grpc import Call
 import torch
 import wandb
 
@@ -33,7 +35,7 @@ class CallbackNoisyStatistics(Callback):
         )
         self.total += metrics["batch"]["noisy_label"].size(0)
 
-    def on_epoch_end(self, epoch, name):
+    def on_epoch_end(self, metrics, epoch, name):
         self.log_stats(name, epoch)
         self.reset()
 
@@ -41,5 +43,24 @@ class CallbackNoisyStatistics(Callback):
         wandb.log({f"{name}_clean_accuracy": self.clean_running_correct / self.total})
         wandb.log({f"{name}_noisy_accuracy": self.noisy_running_correct / self.total})
         wandb.log({f"{name}_noisy_loss": self.running_loss / self.total})
-        print(f'{set}_clean acc = {self.clean_running_correct / self.total}')
-        print(f'{set}_noisy acc = {self.noisy_running_correct / self.total}')
+        print(f'{name}_clean acc = {self.clean_running_correct / self.total}')
+        print(f'{name}_noisy acc = {self.noisy_running_correct / self.total}')
+
+
+
+class CallbackPermutationStats(Callback):
+    def __init__(self):
+        pass
+
+    def on_step_end(self, metrics, name):
+        pass
+
+    def on_epoch_end(self, metrics, epoch, name):
+        _, alpha_label = torch.max(metrics["alpha_matrix"].detach().cpu(), 1)
+        permuted_sample = alpha_label != metrics["all_noisy_labels"]
+
+        num_of_permuted_samples = permuted_sample.sum().item()
+        num_of_false_permutations = (alpha_label[permuted_sample] != metrics["all_clean_labels"][permuted_sample]).sum()
+        # TODO: implement log_stats
+        print(f'number of permuted samples = {num_of_permuted_samples}')
+        print(f'number of false permutations = {num_of_false_permutations}')

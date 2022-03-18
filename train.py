@@ -52,7 +52,7 @@ class TrainPermutation:
             loss.backward()
             self.optimizer.step()
 
-        metrics = {"batch": batch, "loss": loss, "output": output, "unpermuted_logits": unpermuted_logits}
+        metrics = {"batch": batch, "loss": loss, "output": output, "unpermuted_logits": unpermuted_logits, "alpha_matrix": self.model.perm_model.alpha_matrix, "all_clean_labels": self.train_loader.dataset.original_labels, "all_noisy_labels": self.train_loader.dataset.noisy_labels}
         return metrics
 
     def one_epoch(self, epoch, val_epoch=False):
@@ -69,7 +69,7 @@ class TrainPermutation:
                 callback.on_step_end(metrics, name)
 
         for callback in self.callbacks:
-            callback.on_epoch_end(epoch, name)
+            callback.on_epoch_end(metrics, epoch, name)
 
     def start(self):
         self.model.to(self.device)

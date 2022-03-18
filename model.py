@@ -12,6 +12,7 @@ class GroupModel(nn.Module):
         self.perm_model = PermutationModel(num_classes, dataset_targets)
 
     def forward(self, x, target, sample_index, network_indices):
+        # print(network_indices)
         outputs = []
         all_unpermuted_logits = []
         for index in network_indices:
@@ -28,7 +29,7 @@ class GroupModel(nn.Module):
 
 class PermutationModel(nn.Module):
     def __init__(
-        self, num_classes: int, dataset_targets: list, class_init_value: float = 10
+        self, num_classes: int, dataset_targets: list, class_init_value: float = 5
     ) -> None:
         super().__init__()
         self.num_classes = num_classes

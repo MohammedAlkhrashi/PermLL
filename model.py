@@ -5,14 +5,19 @@ import torch.nn as nn
 
 class GroupModel(nn.Module):
     def __init__(
-        self, models: nn.ModuleList, num_classes: int, dataset_targets
+        self,
+        models: nn.ModuleList,
+        num_classes: int,
+        dataset_targets,
+        disable_perm=False,
     ) -> None:
         super().__init__()
         self.models = models
-        self.perm_model = PermutationModel(num_classes, dataset_targets)
+        self.perm_model = PermutationModel(
+            num_classes, dataset_targets, disable_module=disable_perm
+        )
 
     def forward(self, x, target, sample_index, network_indices):
-        # print(network_indices)
         outputs = []
         all_unpermuted_logits = []
         for index in network_indices:
@@ -29,7 +34,11 @@ class GroupModel(nn.Module):
 
 class PermutationModel(nn.Module):
     def __init__(
-        self, num_classes: int, dataset_targets: list, class_init_value: float = 5
+        self,
+        num_classes: int,
+        dataset_targets: list,
+        class_init_value: float = 5,
+        disable_module=False,
     ) -> None:
         super().__init__()
         self.num_classes = num_classes
@@ -44,9 +53,16 @@ class PermutationModel(nn.Module):
         self.alpha_matrix.requires_grad = True
         self.all_perm = self.create_all_perm()
 
+        self.disable_module = disable_module
+        if self.disable_module:
+            print("*" * 100)
+            print(
+                "WARNING: Permutation model is disabled, it is now equivelent to the identity module"
+            )
+            print("*" * 100)
+
     def forward(self, logits, target, sample_index):
-        # return logits
-        if not self.training:
+        if not self.training or self.disable_module:
             return logits
         perm = self.all_perm[target]
         perm = perm.to(self.alpha_matrix.device)
@@ -74,7 +90,7 @@ class PermutationModel(nn.Module):
             perm_list.append(one_class_perm)
         perm = torch.stack(perm_list)
         return perm
-        
+
 
 def swap_positions(list_, pos1, pos2):
     list_[pos1], list_[pos2] = list_[pos2], list_[pos1]

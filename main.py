@@ -12,20 +12,21 @@ def get_config():
     config = dict()
     # Training
     config["networks_lr"] = 0.05
-    config["permutation_lr"] = 100/(10*1)
+    config["permutation_lr"] = 100 / (10 * 1)
     config["epochs"] = 200
     config["batch_size"] = 32
     config["pretrained"] = False
+    config["disable_perm"] = True
     # Noise related
     config["noise"] = 0.3
     config["upperbound_exp"] = False
     # Group related
     config["networks_per_group"] = 1
-    config["num_groups"] = 10
-    config["change_every"] = 3
+    config["num_groups"] = 1
+    config["change_every"] = 1
     # General config
     config["gpu_num"] = "0"
-    config["num_workers"] = 15
+    config["num_workers"] = 4
     return config
 
 
@@ -43,6 +44,7 @@ def main():
         num_classes=10,
         pretrained=config["pretrained"],
         dataset_targets=loaders["train"].dataset.noisy_labels,
+        disable_perm=config["disable_perm"],
     )
     optimizer = create_group_optimizer(
         model,
@@ -72,4 +74,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

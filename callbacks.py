@@ -1,5 +1,3 @@
-from math import perm
-from grpc import Call
 import torch
 import wandb
 
@@ -25,7 +23,9 @@ class CallbackNoisyStatistics(Callback):
     def on_step_end(self, metrics, name):
         self.running_loss += metrics["loss"]
         _, predicted = torch.max(metrics["output"][0].detach(), 1)
-        _, prediction_before_perm = torch.max(metrics["unpermuted_logits"][0].detach(), 1)
+        _, prediction_before_perm = torch.max(
+            metrics["unpermuted_logits"][0].detach(), 1
+        )
 
         self.noisy_running_correct += (
             (predicted == metrics["batch"]["noisy_label"]).sum().item()
@@ -43,9 +43,8 @@ class CallbackNoisyStatistics(Callback):
         wandb.log({f"{name}_clean_accuracy": self.clean_running_correct / self.total})
         wandb.log({f"{name}_noisy_accuracy": self.noisy_running_correct / self.total})
         wandb.log({f"{name}_noisy_loss": self.running_loss / self.total})
-        print(f'{name}_clean acc = {self.clean_running_correct / self.total}')
-        print(f'{name}_noisy acc = {self.noisy_running_correct / self.total}')
-
+        print(f"{name}_clean acc = {self.clean_running_correct / self.total}")
+        print(f"{name}_noisy acc = {self.noisy_running_correct / self.total}")
 
 
 class CallbackPermutationStats(Callback):
@@ -60,7 +59,9 @@ class CallbackPermutationStats(Callback):
         permuted_sample = alpha_label != metrics["all_noisy_labels"]
 
         num_of_permuted_samples = permuted_sample.sum().item()
-        num_of_false_permutations = (alpha_label[permuted_sample] != metrics["all_clean_labels"][permuted_sample]).sum()
+        num_of_false_permutations = (
+            alpha_label[permuted_sample] != metrics["all_clean_labels"][permuted_sample]
+        ).sum()
         # TODO: implement log_stats
-        print(f'number of permuted samples = {num_of_permuted_samples}')
-        print(f'number of false permutations = {num_of_false_permutations}')
+        print(f"number of permuted samples = {num_of_permuted_samples}")
+        print(f"number of false permutations = {num_of_false_permutations}")

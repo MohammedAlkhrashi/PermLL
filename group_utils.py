@@ -87,7 +87,12 @@ def create_group_optimizer(model, networks_lr, permutation_lr):
 
 
 def create_group_model(
-    num_of_networks, pretrained, num_classes, dataset_targets, model_name="resnet18"
+    num_of_networks,
+    pretrained,
+    num_classes,
+    dataset_targets,
+    model_name="resnet18",
+    disable_perm=False,
 ):
     models = nn.ModuleList()
     for _ in range(num_of_networks):
@@ -95,7 +100,7 @@ def create_group_model(
             model_name, pretrained=pretrained, num_classes=num_classes
         )
         models.append(model)
-    group_model = GroupModel(models, num_classes, dataset_targets)
+    group_model = GroupModel(models, num_classes, dataset_targets, disable_perm)
     return group_model
 
 

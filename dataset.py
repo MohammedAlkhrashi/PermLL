@@ -7,6 +7,8 @@ import torchvision.transforms as transforms
 from torch import Tensor
 from torch.utils.data import DataLoader, Dataset
 
+NORMALIZATION = ((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+
 
 def apply_noise(labels: Tensor, noise: float):
     random.seed(42)
@@ -56,19 +58,21 @@ class NoisyDataset(Dataset):
         return len(self.dataset)
 
 
-def cifar_10_dataloaders(batch_size, noise, num_workers, upperbound=False):
+def cifar_10_dataloaders(
+    batch_size, noise, num_workers, train_transform, upperbound=False
+):
 
     data_folder = "./dataset"
 
-    transform = transforms.Compose(
-        [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+    val_transform = transforms.Compose(
+        [transforms.ToTensor(), transforms.Normalize(*NORMALIZATION)]
     )
     trainset = torchvision.datasets.CIFAR10(
-        root=data_folder, train=True, download=True, transform=transform
+        root=data_folder, train=True, download=True, transform=train_transform
     )
 
     valset = torchvision.datasets.CIFAR10(
-        root=data_folder, train=False, download=True, transform=transform
+        root=data_folder, train=False, download=True, transform=val_transform
     )
 
     def print_label_distribution(dataset):
@@ -95,3 +99,16 @@ def cifar_10_dataloaders(batch_size, noise, num_workers, upperbound=False):
         "train": trainloader,
         "val": valloader,
     }
+
+
+def create_train_transform():
+    transforms_list = []
+    transforms_list.append(
+        transforms.RandomCrop(32, padding=4, padding_mode="reflect"),
+    )
+    transforms_list.append(transforms.RandomHorizontalFlip())
+    transforms_list.append(transforms.ToTensor())
+    transforms_list.append(transforms.Normalize(*NORMALIZATION))
+    train_transform = transforms.Compose(transforms_list)
+    return train_transform
+

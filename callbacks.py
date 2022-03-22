@@ -65,3 +65,16 @@ class CallbackPermutationStats(Callback):
         # TODO: implement log_stats
         print(f"number of permuted samples = {num_of_permuted_samples}")
         print(f"number of false permutations = {num_of_false_permutations}")
+
+
+class CallbackLearningRateScheduler(Callback):
+    def __init__(self, optimizer, max_lr, epochs, steps_per_epoch):
+        self.sched = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer, max_lr, epochs=epochs, steps_per_epoch=steps_per_epoch
+        )
+
+    def on_step_end(self, metrics, name):
+        self.sched.step()
+
+    def on_epoch_end(self, metrics, epoch, name):
+        pass

@@ -1,8 +1,12 @@
 import wandb
 from torch.nn.modules import CrossEntropyLoss
-from callbacks import CallbackNoisyStatistics, CallbackPermutationStats
+from callbacks import (
+    CallbackLearningRateScheduler,
+    CallbackNoisyStatistics,
+    CallbackPermutationStats,
+)
 
-from dataset import cifar_10_dataloaders
+from dataset import cifar_10_dataloaders, create_train_transform
 from group_utils import GroupPicker, create_group_model, create_group_optimizer
 from model import GroupModel
 from train import TrainPermutation
@@ -11,12 +15,14 @@ from train import TrainPermutation
 def get_config():
     config = dict()
     # Training
-    config["networks_lr"] = 0.05
+    config["networks_lr"] = 0.01
     config["permutation_lr"] = 100 / (10 * 1)
+    config["weight_decay"] = 1e-4
     config["epochs"] = 200
     config["batch_size"] = 32
     config["pretrained"] = False
     config["disable_perm"] = True
+    config["with_lr_scheduler"] = True
     # Noise related
     config["noise"] = 0.3
     config["upperbound_exp"] = False
@@ -33,11 +39,13 @@ def get_config():
 def main():
     config = get_config()
     wandb.init(project="test-project", entity="nnlp", config=config)
+    train_transform = create_train_transform()
     loaders = cifar_10_dataloaders(
         batch_size=config["batch_size"],
         noise=config["noise"],
         num_workers=config["num_workers"],
         upperbound=config["upperbound_exp"],
+        train_transform=train_transform,
     )
     model: GroupModel = create_group_model(
         config["networks_per_group"] * config["num_groups"],
@@ -50,8 +58,18 @@ def main():
         model,
         networks_lr=config["networks_lr"],
         permutation_lr=config["permutation_lr"],
+        weight_decay=config["weight_decay"],
     )
     callbacks = [CallbackNoisyStatistics(), CallbackPermutationStats()]
+    if config["with_lr_scheduler"]:
+        callbacks.append(
+            CallbackLearningRateScheduler(
+                optimizer.network_optimizer,
+                config["networks_lr"],
+                config["epochs"],
+                steps_per_epoch=len(loaders["train"]),
+            )
+        )
     group_picker = GroupPicker(
         networks_per_group=config["networks_per_group"],
         num_groups=config["num_groups"],

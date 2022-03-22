@@ -68,7 +68,7 @@ class GroupOptimizer:
         self.permutation_optimizer.zero_grad()
 
 
-def create_group_optimizer(model, networks_lr, permutation_lr):
+def create_group_optimizer(model, networks_lr, permutation_lr, weight_decay):
     networks_params = []
     permutations_params = []
     for name, param in model.named_parameters():
@@ -78,7 +78,7 @@ def create_group_optimizer(model, networks_lr, permutation_lr):
             networks_params.append(param)
 
     # TODO: give each group it's own parameters
-    networks_optimizer = SGD(networks_params, lr=networks_lr)
+    networks_optimizer = SGD(networks_params, lr=networks_lr, weight_decay=weight_decay)
     permutation_optimizer = SGD(permutations_params, lr=permutation_lr)
     return GroupOptimizer(
         networks_optimizer=networks_optimizer,

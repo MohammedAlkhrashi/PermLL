@@ -74,7 +74,8 @@ class CallbackLearningRateScheduler(Callback):
         )
 
     def on_step_end(self, metrics, name):
-        self.sched.step()
+        if name == 'train':
+            self.sched.step()
 
     def on_epoch_end(self, metrics, epoch, name):
         pass

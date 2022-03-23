@@ -23,7 +23,9 @@ def get_config():
     config["pretrained"] = False
     config["disable_perm"] = True
     config["with_lr_scheduler"] = True
-    # Noise related
+    config["grad_clip"] = 0.1  # -1 to turn off
+    config["networks_optim"] = "adam"  # sgd,adam
+    # Noise relate
     config["noise"] = 0.3
     config["upperbound_exp"] = False
     # Group related
@@ -56,6 +58,7 @@ def main():
     )
     optimizer = create_group_optimizer(
         model,
+        networks_optim_choice=config["networks_optim"],
         networks_lr=config["networks_lr"],
         permutation_lr=config["permutation_lr"],
         weight_decay=config["weight_decay"],
@@ -87,6 +90,7 @@ def main():
         gpu_num=config["gpu_num"],
         group_picker=group_picker,
         callbacks=callbacks,
+        grad_clip=config["grad_clip"],
     ).start()
 
 

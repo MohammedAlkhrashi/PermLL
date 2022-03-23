@@ -18,6 +18,7 @@ class TrainPermutation:
         val_loader,
         epochs,
         criterion,
+        grad_clip,
         group_picker: GroupPicker,
         callbacks: List[Callback] = [],
         gpu_num="0",
@@ -26,6 +27,7 @@ class TrainPermutation:
         self.optimizer: GroupOptimizer = optimizer
         self.criterion: nn.Module = GroupLoss(criterion)
         self.epochs = epochs
+        self.grad_clip = grad_clip
 
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -50,6 +52,11 @@ class TrainPermutation:
         loss = self.criterion(output, batch["noisy_label"])
         if not val_step:
             loss.backward()
+            if self.grad_clip != -1:
+                # Grad clipping currently only works for one network.
+                nn.utils.clip_grad_value_(
+                    self.model.models[0].parameters(), self.grad_clip
+                )
             self.optimizer.step()
 
         metrics = {
@@ -69,7 +76,6 @@ class TrainPermutation:
 
         for batch in tqdm(loader, desc=f"Running {name.capitalize()} Epoch"):
             metrics = self.step(batch=batch, epoch=epoch, val_step=val_epoch)
-
             for callback in self.callbacks:
                 callback.on_step_end(metrics, name)
 

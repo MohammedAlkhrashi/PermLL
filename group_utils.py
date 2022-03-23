@@ -3,7 +3,7 @@ from typing import List
 
 import timm
 import torch.nn as nn
-from torch.optim import SGD
+from torch.optim import SGD, Adam
 
 from model import GroupModel
 
@@ -68,7 +68,10 @@ class GroupOptimizer:
         self.permutation_optimizer.zero_grad()
 
 
-def create_group_optimizer(model, networks_lr, permutation_lr, weight_decay):
+def create_group_optimizer(
+    model, networks_optim_choice, networks_lr, permutation_lr, weight_decay
+):
+
     networks_params = []
     permutations_params = []
     for name, param in model.named_parameters():
@@ -77,8 +80,17 @@ def create_group_optimizer(model, networks_lr, permutation_lr, weight_decay):
         else:
             networks_params.append(param)
 
+    if networks_optim_choice == "sgd":
+        NetworkOptim = SGD
+    elif networks_optim_choice == "adam":
+        NetworkOptim = Adam
+    else:
+        raise ValueError()
+
     # TODO: give each group it's own parameters
-    networks_optimizer = SGD(networks_params, lr=networks_lr, weight_decay=weight_decay)
+    networks_optimizer = NetworkOptim(
+        networks_params, lr=networks_lr, weight_decay=weight_decay
+    )
     permutation_optimizer = SGD(permutations_params, lr=permutation_lr)
     return GroupOptimizer(
         networks_optimizer=networks_optimizer,

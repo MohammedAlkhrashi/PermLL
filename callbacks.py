@@ -57,14 +57,36 @@ class CallbackPermutationStats(Callback):
     def on_epoch_end(self, metrics, epoch, name):
         _, alpha_label = torch.max(metrics["alpha_matrix"].detach().cpu(), 1)
         permuted_sample = alpha_label != metrics["all_noisy_labels"]
+        noisy_sample = metrics["all_noisy_labels"] != metrics["all_clean_labels"]
 
-        num_of_permuted_samples = permuted_sample.sum().item()
-        num_of_false_permutations = (
-            alpha_label[permuted_sample] != metrics["all_clean_labels"][permuted_sample]
+        num_permuted_samples = permuted_sample.sum().item()
+
+        correct_to_false = (
+            (~noisy_sample) * (alpha_label != metrics["all_clean_labels"])
         ).sum()
+        false_to_correct = (
+            noisy_sample * (alpha_label == metrics["all_clean_labels"])
+        ).sum()
+        false_to_false = (
+            noisy_sample
+            * (alpha_label != metrics["all_clean_labels"])
+            * permuted_sample
+        ).sum()
+
+        expected_new_label_accuracy = (alpha_label == metrics["all_clean_labels"]).sum()
+
         # TODO: implement log_stats
-        print(f"number of permuted samples = {num_of_permuted_samples}")
-        print(f"number of false permutations = {num_of_false_permutations}")
+        print(f"number of permuted samples = {num_permuted_samples}")
+        print(f"number of correct_to_false = {correct_to_false}")
+        print(f"number of false_to_correct = {false_to_correct}")
+        print(f"number of false_to_false = {false_to_false}")
+        print(f"expected new label accuracy = {expected_new_label_accuracy}")
+
+        wandb.log({"num_permuted_samples": num_permuted_samples})
+        wandb.log({"correct_to_false": correct_to_false})
+        wandb.log({"false_to_correct": false_to_correct})
+        wandb.log({"false_to_false": false_to_false})
+        wandb.log({"expected_new_label_accuracy": expected_new_label_accuracy})
 
 
 class CallbackLearningRateScheduler(Callback):
@@ -74,7 +96,7 @@ class CallbackLearningRateScheduler(Callback):
         )
 
     def on_step_end(self, metrics, name):
-        if name == 'train':
+        if name == "train":
             self.sched.step()
 
     def on_epoch_end(self, metrics, epoch, name):

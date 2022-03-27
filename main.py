@@ -1,3 +1,4 @@
+import argparse
 import wandb
 from torch.nn.modules import CrossEntropyLoss
 from callbacks import (
@@ -12,30 +13,38 @@ from model import GroupModel
 from train import TrainPermutation
 
 
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ("yes", "true", "t", "y", "1"):
+        return True
+    elif v.lower() in ("no", "false", "f", "n", "0"):
+        return False
+    else:
+        raise argparse.ArgumentTypeError("Boolean value expected.")
+
+
 def get_config():
-    config = dict()
-    # Training
-    config["networks_lr"] = 0.01
-    config["permutation_lr"] = 100 / (10 * 1)
-    config["weight_decay"] = 1e-4
-    config["epochs"] = 200
-    config["batch_size"] = 32
-    config["pretrained"] = False
-    config["disable_perm"] = True
-    config["with_lr_scheduler"] = True
-    config["grad_clip"] = 0.1  # -1 to turn off
-    config["networks_optim"] = "adam"  # sgd,adam
-    # Noise relate
-    config["noise"] = 0.3
-    config["upperbound_exp"] = False
-    # Group related
-    config["networks_per_group"] = 1
-    config["num_groups"] = 1
-    config["change_every"] = 1
-    # General config
-    config["gpu_num"] = "0"
-    config["num_workers"] = 4
-    return config
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--networks_lr", type=float, default=0.01)
+    parser.add_argument("--permutation_lr", type=float, default=10.0)
+    parser.add_argument("--weight_decay", type=float, default=0.0001)
+    parser.add_argument("--epochs", type=int, default=75)
+    parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--pretrained", type=str2bool, default=False)
+    parser.add_argument("--disable_perm", type=str2bool, default=True)
+    parser.add_argument("--with_lr_scheduler", type=str2bool, default=True)
+    parser.add_argument("--grad_clip", type=float, default=0.1)
+    parser.add_argument("--networks_optim", type=str, default="adam")
+    parser.add_argument("--noise", type=float, default=0.3)
+    parser.add_argument("--upperbound_exp", type=str2bool, default=False)
+    parser.add_argument("--networks_per_group", type=int, default=1)
+    parser.add_argument("--num_groups", type=int, default=1)
+    parser.add_argument("--change_every", type=int, default=1)
+    parser.add_argument("--gpu_num", type=str, default="0")
+    parser.add_argument("--num_workers", type=int, default=4)
+    args = parser.parse_args()
+    return vars(args)
 
 
 def main():

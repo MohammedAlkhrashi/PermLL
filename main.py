@@ -43,6 +43,7 @@ def get_config():
     parser.add_argument("--change_every", type=int, default=1)
     parser.add_argument("--gpu_num", type=str, default="0")
     parser.add_argument("--num_workers", type=int, default=15)
+    parser.add_argument("--num_generations", type=int, default=1)
     args = parser.parse_args()
     return vars(args)
 
@@ -66,7 +67,7 @@ def main():
         else len(loaders["train"]),
     )
     perm_model = None
-    for _ in range(config["generations"]):
+    for _ in range(config["num_generations"]):
         model: GroupModel = create_group_model(
             config["networks_per_group"] * config["num_groups"],
             num_classes=10,

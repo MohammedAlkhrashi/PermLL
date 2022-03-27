@@ -103,6 +103,7 @@ def create_group_model(
     pretrained,
     num_classes,
     dataset_targets,
+    perm_init_value,
     model_name="resnet18",
     disable_perm=False,
 ):
@@ -112,7 +113,9 @@ def create_group_model(
             model_name, pretrained=pretrained, num_classes=num_classes
         )
         models.append(model)
-    group_model = GroupModel(models, num_classes, dataset_targets, disable_perm)
+    group_model = GroupModel(
+        models, num_classes, dataset_targets, perm_init_value, disable_perm
+    )
     return group_model
 
 

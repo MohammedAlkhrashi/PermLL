@@ -73,7 +73,9 @@ class CallbackPermutationStats(Callback):
             * permuted_sample
         ).sum()
 
-        expected_new_label_accuracy = (alpha_label == metrics["all_clean_labels"]).sum()
+        expected_new_label_accuracy = (
+            alpha_label == metrics["all_clean_labels"]
+        ).sum() / metrics["all_clean_labels"].shape[0]
 
         # TODO: implement log_stats
         print(f"number of permuted samples = {num_permuted_samples}")

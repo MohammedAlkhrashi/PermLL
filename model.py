@@ -9,12 +9,16 @@ class GroupModel(nn.Module):
         models: nn.ModuleList,
         num_classes: int,
         dataset_targets,
+        perm_init_value,
         disable_perm=False,
     ) -> None:
         super().__init__()
         self.models = models
         self.perm_model = PermutationModel(
-            num_classes, dataset_targets, disable_module=disable_perm
+            num_classes,
+            dataset_targets,
+            perm_init_value,
+            disable_module=disable_perm,
         )
 
     def forward(self, x, target, sample_index, network_indices):
@@ -37,7 +41,7 @@ class PermutationModel(nn.Module):
         self,
         num_classes: int,
         dataset_targets: list,
-        class_init_value: float = 5,
+        perm_init_value: float,
         disable_module=False,
     ) -> None:
         super().__init__()
@@ -45,10 +49,10 @@ class PermutationModel(nn.Module):
         num_train_samples = len(dataset_targets)
         self.softmax = nn.Softmax(1)
         self.alpha_matrix = nn.Parameter(
-            torch.ones(num_train_samples, num_classes), requires_grad=False
+            torch.zeros(num_train_samples, num_classes), requires_grad=False
         )
         self.alpha_matrix.scatter_(
-            1, torch.tensor(dataset_targets).unsqueeze(1), class_init_value
+            1, torch.tensor(dataset_targets).unsqueeze(1), perm_init_value
         )
         self.alpha_matrix.requires_grad = True
         self.all_perm = self.create_all_perm()

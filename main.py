@@ -44,6 +44,7 @@ def get_config():
     parser.add_argument("--gpu_num", type=str, default="0")
     parser.add_argument("--num_workers", type=int, default=15)
     parser.add_argument("--num_generations", type=int, default=1)
+    parser.add_argument("--perm_init_value", type=int, default=4)
     args = parser.parse_args()
     return vars(args)
 
@@ -73,13 +74,12 @@ def main():
             num_classes=10,
             pretrained=config["pretrained"],
             dataset_targets=loaders["train"].dataset.noisy_labels,
+            perm_init_value=config["perm_init_value"],
             disable_perm=config["disable_perm"],
         )
 
-        print(f"alpha matirx before: {model.perm_model.alpha_matrix.sum()}")
         if perm_model:
             model.perm_model = perm_model
-            print(f"alpha matirx after: {model.perm_model.alpha_matrix.sum()}")
 
         optimizer = create_group_optimizer(
             model,

@@ -74,7 +74,9 @@ class TrainPermutation:
         loader = self.val_loader if val_epoch else self.train_loader
         name = "val" if val_epoch else "train"
 
-        for batch in tqdm(loader, desc=f"Running {name.capitalize()}, Epoch: {epoch}",leave=True):
+        for batch in tqdm(
+            loader, desc=f"Running {name.capitalize()}, Epoch: {epoch}", leave=True
+        ):
             metrics = self.step(batch=batch, epoch=epoch, val_step=val_epoch)
             for callback in self.callbacks:
                 callback.on_step_end(metrics, name)
@@ -84,7 +86,7 @@ class TrainPermutation:
 
     def start(self):
         self.model.to(self.device)
-        for epoch in range(1,self.epochs + 1):
+        for epoch in range(1, self.epochs + 1):
             self.model.train()
             self.one_epoch(epoch, val_epoch=False)
             self.model.eval()

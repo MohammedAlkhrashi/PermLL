@@ -46,15 +46,11 @@ class PermutationModel(nn.Module):
     ) -> None:
         super().__init__()
         self.num_classes = num_classes
-        num_train_samples = len(dataset_targets)
+        self.num_train_samples = len(dataset_targets)
         self.softmax = nn.Softmax(1)
-        self.alpha_matrix = nn.Parameter(
-            torch.zeros(num_train_samples, num_classes), requires_grad=False
-        )
-        self.alpha_matrix.scatter_(
-            1, torch.tensor(dataset_targets).unsqueeze(1), perm_init_value
-        )
-        self.alpha_matrix.requires_grad = True
+        self.perm_init_value = perm_init_value
+
+        self.alpha_matrix = self.create_alpha_matrix(dataset_targets)
         self.all_perm = self.create_all_perm()
 
         self.disable_module = disable_module
@@ -78,6 +74,16 @@ class PermutationModel(nn.Module):
             permutation_matrices, logits.unsqueeze(-1)
         ).squeeze(-1)
         return permuted_logits
+
+    def create_alpha_matrix(self, targets):
+        alpha_matrix = nn.Parameter(
+            torch.zeros(self.num_train_samples, self.num_classes), requires_grad=False
+        )
+        alpha_matrix.scatter_(
+            1, torch.tensor(targets).unsqueeze(1), self.perm_init_value
+        )
+        alpha_matrix.requires_grad = True
+        return alpha_matrix
 
     def create_all_perm(self):
         classes_list = list(range(self.num_classes))

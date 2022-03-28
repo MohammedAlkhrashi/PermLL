@@ -1,4 +1,7 @@
 import argparse
+from math import perm
+
+import torch
 import wandb
 from torch.nn.modules import CrossEntropyLoss
 from callbacks import (
@@ -9,7 +12,7 @@ from callbacks import (
 
 from dataset import cifar_10_dataloaders, create_train_transform
 from group_utils import GroupPicker, create_group_model, create_group_optimizer
-from model import GroupModel
+from model import GroupModel, PermutationModel
 from train import TrainPermutation
 
 
@@ -67,7 +70,7 @@ def main():
         if config["change_every"] != -1
         else len(loaders["train"]),
     )
-    perm_model = None
+
     for _ in range(config["num_generations"]):
         model: GroupModel = create_group_model(
             config["networks_per_group"] * config["num_groups"],
@@ -77,9 +80,6 @@ def main():
             perm_init_value=config["perm_init_value"],
             disable_perm=config["disable_perm"],
         )
-
-        if perm_model:
-            model.perm_model = perm_model
 
         optimizer = create_group_optimizer(
             model,
@@ -110,7 +110,9 @@ def main():
             callbacks=callbacks,
             grad_clip=config["grad_clip"],
         ).start()
-        perm_model = model.perm_model
+
+        _, alpha_label = torch.max(model.perm_model.alpha_matrix.detach().cpu(), 1)
+        loaders["train"].dataset.noisy_labels = alpha_label
 
 
 if __name__ == "__main__":

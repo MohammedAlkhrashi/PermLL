@@ -45,6 +45,7 @@ def get_config():
     parser.add_argument("--num_groups", type=int, default=1)
     parser.add_argument("--change_every", type=int, default=1)
     parser.add_argument("--gpu_num", type=str, default="0")
+    parser.add_argument("--model_name", type=str, default="resnet18")
     parser.add_argument("--num_workers", type=int, default=15)
     parser.add_argument("--num_generations", type=int, default=1)
     parser.add_argument("--perm_init_value", type=int, default=4)
@@ -71,13 +72,14 @@ def main():
         else len(loaders["train"]),
     )
 
-    for _ in range(config["num_generations"]):
+    for gen in range(config["num_generations"]):
         model: GroupModel = create_group_model(
             config["networks_per_group"] * config["num_groups"],
             num_classes=10,
             pretrained=config["pretrained"],
             dataset_targets=loaders["train"].dataset.noisy_labels,
             perm_init_value=config["perm_init_value"],
+            model_name=config["model_name"],
             disable_perm=config["disable_perm"],
         )
 

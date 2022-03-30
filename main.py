@@ -8,6 +8,7 @@ from callbacks import (
     CallbackLearningRateScheduler,
     CallbackNoisyStatistics,
     CallbackPermutationStats,
+    CallbackLabelCorrectionStats,
 )
 
 from dataset import cifar_10_dataloaders, create_train_transform
@@ -36,9 +37,9 @@ def get_config():
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--pretrained", type=str2bool, default=False)
     parser.add_argument("--disable_perm", type=str2bool, default=False)
-    parser.add_argument("--with_lr_scheduler", type=str2bool, default=True)
+    parser.add_argument("--with_lr_scheduler", type=str2bool, default=False)
     parser.add_argument("--grad_clip", type=float, default=-1)
-    parser.add_argument("--networks_optim", type=str, default="adam")
+    parser.add_argument("--networks_optim", type=str, default="sgd")
     parser.add_argument("--noise", type=float, default=0.3)
     parser.add_argument("--upperbound_exp", type=str2bool, default=False)
     parser.add_argument("--networks_per_group", type=int, default=1)
@@ -90,7 +91,7 @@ def main():
             permutation_lr=config["permutation_lr"],
             weight_decay=config["weight_decay"],
         )
-        callbacks = [CallbackNoisyStatistics(), CallbackPermutationStats()]
+        callbacks = [CallbackNoisyStatistics(), CallbackPermutationStats(), CallbackLabelCorrectionStats()]
         if config["with_lr_scheduler"]:
             callbacks.append(
                 CallbackLearningRateScheduler(

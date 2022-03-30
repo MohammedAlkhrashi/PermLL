@@ -1,12 +1,14 @@
 import torch
 import wandb
+import os
 
 
 class Callback:
     def on_step_end(self, metrics, name):
         raise NotImplementedError
-
     def on_epoch_end(self, metrics, epoch, name):
+        raise NotImplementedError
+    def on_training_end(self, metrics):
         raise NotImplementedError
 
 
@@ -39,6 +41,9 @@ class CallbackNoisyStatistics(Callback):
         self.log_stats(name, epoch)
         self.reset()
 
+    def on_training_end(self, metrics):
+        pass
+
     def log_stats(self, name, epoch):
         wandb.log({f"{name}_clean_accuracy": self.clean_running_correct / self.total})
         wandb.log({f"{name}_noisy_accuracy": self.noisy_running_correct / self.total})
@@ -59,37 +64,42 @@ class CallbackPermutationStats(Callback):
         permuted_sample = alpha_label != metrics["all_noisy_labels"]
         noisy_sample = metrics["all_noisy_labels"] != metrics["all_clean_labels"]
 
-        num_permuted_samples = permuted_sample.sum().item()
+        self.num_permuted_samples = permuted_sample.sum().item()
 
-        correct_to_false = (
+        self.correct_to_false = (
             (~noisy_sample) * (alpha_label != metrics["all_clean_labels"])
         ).sum()
-        false_to_correct = (
+        self.false_to_correct = (
             noisy_sample * (alpha_label == metrics["all_clean_labels"])
         ).sum()
-        false_to_false = (
+        self.false_to_false = (
             noisy_sample
             * (alpha_label != metrics["all_clean_labels"])
             * permuted_sample
         ).sum()
 
-        expected_new_label_accuracy = (
+        self.expected_new_label_accuracy = (
             alpha_label == metrics["all_clean_labels"]
         ).sum() / metrics["all_clean_labels"].shape[0]
+        
+        self.log_stats(name)
+        
+        print(f"number of permuted samples = {self.num_permuted_samples}")
+        print(f"number of correct_to_false = {self.correct_to_false}")
+        print(f"number of false_to_correct = {self.false_to_correct}")
+        print(f"number of false_to_false = {self.false_to_false}")
+        print(f"expected new label accuracy = {self.expected_new_label_accuracy}")
 
-        # TODO: implement log_stats
-        print(f"number of permuted samples = {num_permuted_samples}")
-        print(f"number of correct_to_false = {correct_to_false}")
-        print(f"number of false_to_correct = {false_to_correct}")
-        print(f"number of false_to_false = {false_to_false}")
-        print(f"expected new label accuracy = {expected_new_label_accuracy}")
+    
+    def on_training_end(self, metrics):
+        pass
 
-        wandb.log({"num_permuted_samples": num_permuted_samples})
-        wandb.log({"correct_to_false": correct_to_false})
-        wandb.log({"false_to_correct": false_to_correct})
-        wandb.log({"false_to_false": false_to_false})
-        wandb.log({"expected_new_label_accuracy": expected_new_label_accuracy})
-
+    def log_stats(self, name):
+        wandb.log({"num_permuted_samples": self.num_permuted_samples})
+        wandb.log({"correct_to_false": self.correct_to_false})
+        wandb.log({"false_to_correct": self.false_to_correct})
+        wandb.log({"false_to_false": self.false_to_false})
+        wandb.log({"expected_new_label_accuracy": self.expected_new_label_accuracy})
 
 class CallbackLearningRateScheduler(Callback):
     def __init__(self, optimizer, max_lr, epochs, steps_per_epoch):
@@ -103,3 +113,21 @@ class CallbackLearningRateScheduler(Callback):
 
     def on_epoch_end(self, metrics, epoch, name):
         pass
+
+    def on_training_end(self, metrics):
+        pass
+
+class CallbackLabelCorrectionStats(Callback):
+    def __init__(self):
+        self.main_log_dir = 'stats_logs'
+        os.makedirs(self.main_log_dir, exist_ok=True)
+    def on_step_end(self, metrics, name):
+        pass
+    def on_epoch_end(self, metrics, epoch, name):
+        pass
+    def on_training_end(self, metrics):
+        log_dir = os.path.join(self.main_log_dir, wandb.run.name)
+        os.makedirs(log_dir)
+        loged_metrics = ["all_noisy_labels", "all_clean_labels", "alpha_matrix"]
+        for metric in loged_metrics:
+            torch.save(metrics[metric], os.path.join(log_dir, metric+'.pt'))

@@ -23,20 +23,20 @@ class GroupLoss(nn.Module):
 
 class GroupPicker:
     def __init__(self, networks_per_group, num_groups, change_every) -> None:
-        self.groups: List[List[int]] = self.create_new_groups(
-            networks_per_group, num_groups
-        )
+        self.networks_per_group = networks_per_group
+        self.num_groups = num_groups
+        self.groups: List[List[int]] = self.create_new_groups()
         self.change_every = change_every
         self.count = 0
         self.cur_group_index = 0
 
-    def create_new_groups(self, networks_per_group, num_groups):
-        total_networks = networks_per_group * num_groups
+    def create_new_groups(self):
+        total_networks = self.networks_per_group * self.num_groups
         indices = list(range(total_networks))
         random.shuffle(indices)
         groups = []
-        for i in range(0, total_networks, networks_per_group):
-            group = indices[i : i + networks_per_group]
+        for i in range(0, total_networks, self.networks_per_group):
+            group = indices[i : i + self.networks_per_group]
             groups.append(group)
         return groups
 
@@ -87,7 +87,6 @@ def create_group_optimizer(
     else:
         raise ValueError()
 
-    # TODO: give each group it's own parameters
     networks_optimizer = NetworkOptim(
         networks_params, lr=networks_lr, weight_decay=weight_decay
     )

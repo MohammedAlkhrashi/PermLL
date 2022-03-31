@@ -2,12 +2,16 @@ import torch
 import wandb
 import os
 from termcolor import colored
+from group_utils import GroupPicker
+
 
 class Callback:
     def on_step_end(self, metrics, name):
         raise NotImplementedError
+
     def on_epoch_end(self, metrics, epoch, name):
         raise NotImplementedError
+
     def on_training_end(self, metrics):
         raise NotImplementedError
 
@@ -89,14 +93,13 @@ class CallbackPermutationStats(Callback):
         self.expected_new_label_accuracy = (
             alpha_label == metrics["all_clean_labels"]
         ).sum() / metrics["all_clean_labels"].shape[0]
-        
+
         self.log_stats(name)
         
         print(f"number of permuted samples based on alpha_matrix = {self.num_permuted_samples}: ({colored(self.false_to_correct.item(), 'green')},  {colored(self.false_to_false.item(), 'yellow')}, {colored(self.correct_to_false.item(), 'red')})")
         print(f"expected new label accuracy = {self.expected_new_label_accuracy}")
     
 
-    
     def on_training_end(self, metrics):
         pass
 
@@ -106,7 +109,6 @@ class CallbackPermutationStats(Callback):
         wandb.log({"false_to_correct": self.false_to_correct})
         wandb.log({"false_to_false": self.false_to_false})
         wandb.log({"expected_new_label_accuracy": self.expected_new_label_accuracy})
-
 
 
 class CallbackLearningRateScheduler(Callback):
@@ -125,14 +127,35 @@ class CallbackLearningRateScheduler(Callback):
     def on_training_end(self, metrics):
         pass
 
-class CallbackLabelCorrectionStats(Callback):
-    def __init__(self):
-        self.main_log_dir = 'stats_logs'
-        os.makedirs(self.main_log_dir, exist_ok=True)
+
+class CallbackGroupPickerReseter(Callback):
+    def __init__(self, group_picker: GroupPicker):
+        self.group_picker = group_picker
+        self.count = 0
+
     def on_step_end(self, metrics, name):
-        pass
+        self.count += 1
+        if name == "train" and self.count % self.group_picker.num_groups == 0:
+            self.group_picker.create_new_groups()
+
     def on_epoch_end(self, metrics, epoch, name):
         pass
+
+    def on_training_end(self, metrics):
+        pass
+
+
+class CallbackLabelCorrectionStats(Callback):
+    def __init__(self):
+        self.main_log_dir = "stats_logs"
+        os.makedirs(self.main_log_dir, exist_ok=True)
+
+    def on_step_end(self, metrics, name):
+        pass
+
+    def on_epoch_end(self, metrics, epoch, name):
+        pass
+
     def on_training_end(self, metrics):
         log_dir = os.path.join(self.main_log_dir, wandb.run.name)
         os.makedirs(log_dir, exist_ok=True)

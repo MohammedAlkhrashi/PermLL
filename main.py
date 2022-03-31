@@ -1,19 +1,19 @@
 import argparse
-from math import perm
 
 import torch
-import wandb
 from torch.nn.modules import CrossEntropyLoss
+
+import wandb
 from callbacks import (
+    CallbackGroupPickerReseter,
     CallbackLearningRateScheduler,
     CallbackNoisyStatistics,
     CallbackPermutationStats,
     CallbackLabelCorrectionStats,
 )
-
 from dataset import cifar_10_dataloaders, create_train_transform
 from group_utils import GroupPicker, create_group_model, create_group_optimizer
-from model import GroupModel, PermutationModel
+from model import GroupModel
 from train import TrainPermutation
 
 
@@ -62,6 +62,8 @@ def get_config():
     parser.add_argument("--perm_init_value", type=int, default=4)
     parser.add_argument("--num_permutation_limit", type=int, default=-1, help="maximum number of permutation allowed per generation, -1 means no limit")
     parser.add_argument("--new_label_source", type=str, default='alpha_matrix', choices=['alpha_matrix', 'prediction_before_perm'])
+    parser.add_argument("--reshuffle_groups", type=str2bool, default=False)
+    parser.add_argument("--label_smoothing", type=float, default=0)
     args = parser.parse_args()
     return vars(args)
 
@@ -103,7 +105,11 @@ def main():
             permutation_lr=config["permutation_lr"],
             weight_decay=config["weight_decay"],
         )
-        callbacks = [CallbackNoisyStatistics(), CallbackPermutationStats(), CallbackLabelCorrectionStats()]
+        callbacks = [
+            CallbackNoisyStatistics(),
+            CallbackPermutationStats(),
+            CallbackLabelCorrectionStats(),
+        ]
         if config["with_lr_scheduler"]:
             callbacks.append(
                 CallbackLearningRateScheduler(
@@ -113,13 +119,16 @@ def main():
                     steps_per_epoch=len(loaders["train"]),
                 )
             )
+        if config["reshuffle_groups"]:
+            callbacks.append(CallbackGroupPickerReseter(group_picker))
+
         TrainPermutation(
             model=model,
             optimizer=optimizer,
             train_loader=loaders["train"],
             val_loader=loaders["val"],
             epochs=config["epochs"],
-            criterion=CrossEntropyLoss(),
+            criterion=CrossEntropyLoss(label_smoothing=config['label_smoothing']),
             gpu_num=config["gpu_num"],
             group_picker=group_picker,
             callbacks=callbacks,

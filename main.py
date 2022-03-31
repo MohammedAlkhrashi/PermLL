@@ -27,6 +27,16 @@ def str2bool(v):
     else:
         raise argparse.ArgumentTypeError("Boolean value expected.")
 
+def get_new_labels(new_label_source, prediction_before_perm, sample_index, alpha_matrix):
+    if new_label_source == "alpha_matrix":
+        _, alpha_label = torch.max(alpha_matrix.detach().cpu(), 1)
+        return alpha_label
+    elif new_label_source == "prediction_before_perm":
+        sample_pred = zip(sample_index.tolist(), prediction_before_perm.tolist())
+        sample_pred_sorted = sorted(sample_pred, key= lambda x:x[0])
+        pred_sorted = torch.tensor(list(zip(*sample_pred_sorted))[1])
+        return pred_sorted
+
 
 def get_config():
     parser = argparse.ArgumentParser()
@@ -37,9 +47,9 @@ def get_config():
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--pretrained", type=str2bool, default=False)
     parser.add_argument("--disable_perm", type=str2bool, default=False)
-    parser.add_argument("--with_lr_scheduler", type=str2bool, default=False)
+    parser.add_argument("--with_lr_scheduler", type=str2bool, default=True)
     parser.add_argument("--grad_clip", type=float, default=-1)
-    parser.add_argument("--networks_optim", type=str, default="sgd")
+    parser.add_argument("--networks_optim", type=str, default="adam")
     parser.add_argument("--noise", type=float, default=0.3)
     parser.add_argument("--upperbound_exp", type=str2bool, default=False)
     parser.add_argument("--networks_per_group", type=int, default=1)
@@ -50,6 +60,8 @@ def get_config():
     parser.add_argument("--num_workers", type=int, default=15)
     parser.add_argument("--num_generations", type=int, default=1)
     parser.add_argument("--perm_init_value", type=int, default=4)
+    parser.add_argument("--num_permutation_limit", type=int, default=-1, help="maximum number of permutation allowed per generation, -1 means no limit")
+    parser.add_argument("--new_label_source", type=str, default='alpha_matrix', choices=['alpha_matrix', 'prediction_before_perm'])
     args = parser.parse_args()
     return vars(args)
 
@@ -112,11 +124,11 @@ def main():
             group_picker=group_picker,
             callbacks=callbacks,
             grad_clip=config["grad_clip"],
+            num_permutation_limit=config["num_permutation_limit"]
         ).start()
 
-        _, alpha_label = torch.max(model.perm_model.alpha_matrix.detach().cpu(), 1)
-        loaders["train"].dataset.noisy_labels = alpha_label
-
+        new_label = get_new_labels(config["new_label_source"], callbacks[0].all_train_prediction_before_perm, callbacks[0].all_sample_index, model.perm_model.alpha_matrix) #TODO: fix callbacks[0]
+        loaders["train"].dataset.noisy_labels = new_label
 
 if __name__ == "__main__":
     main()

@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 
-from callbacks import Callback
+from callbacks import Callback, permuted_samples
 from group_utils import GroupLoss, GroupOptimizer, GroupPicker
 from model import GroupModel
 
@@ -20,6 +20,7 @@ class TrainPermutation:
         criterion,
         grad_clip,
         group_picker: GroupPicker,
+        num_permutation_limit,
         callbacks: List[Callback] = [],
         gpu_num="0",
     ) -> None:
@@ -28,6 +29,7 @@ class TrainPermutation:
         self.criterion: nn.Module = GroupLoss(criterion)
         self.epochs = epochs
         self.grad_clip = grad_clip
+        self.num_permutation_limit = num_permutation_limit
 
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -64,6 +66,7 @@ class TrainPermutation:
             "loss": loss,
             "output": output,
             "unpermuted_logits": unpermuted_logits,
+            "sample_index": batch["sample_index"],
             "alpha_matrix": self.model.perm_model.alpha_matrix,
             "all_clean_labels": self.train_loader.dataset.original_labels,
             "all_noisy_labels": self.train_loader.dataset.noisy_labels,
@@ -93,5 +96,10 @@ class TrainPermutation:
             self.model.eval()
             with torch.no_grad():
                 self.one_epoch(epoch, val_epoch=True)
+            
+            _, _, num_permuted_samples = permuted_samples(metrics)
+            if num_permuted_samples > self.num_permutation_limit and self.num_permutation_limit != -1:
+                return
+
         for callback in self.callbacks:
             callback.on_training_end(metrics)

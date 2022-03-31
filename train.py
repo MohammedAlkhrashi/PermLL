@@ -83,12 +83,15 @@ class TrainPermutation:
 
         for callback in self.callbacks:
             callback.on_epoch_end(metrics, epoch, name)
+        return metrics
 
     def start(self):
         self.model.to(self.device)
         for epoch in range(1, self.epochs + 1):
             self.model.train()
-            self.one_epoch(epoch, val_epoch=False)
+            metrics = self.one_epoch(epoch, val_epoch=False)
             self.model.eval()
             with torch.no_grad():
                 self.one_epoch(epoch, val_epoch=True)
+        for callback in self.callbacks:
+            callback.on_training_end(metrics)

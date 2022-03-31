@@ -51,6 +51,7 @@ def get_config():
     parser.add_argument("--num_generations", type=int, default=1)
     parser.add_argument("--perm_init_value", type=int, default=4)
     parser.add_argument("--reshuffle_groups", type=str2bool, default=False)
+    parser.add_argument("--label_smoothing", type=float, default=0)
     args = parser.parse_args()
     return vars(args)
 
@@ -115,7 +116,7 @@ def main():
             train_loader=loaders["train"],
             val_loader=loaders["val"],
             epochs=config["epochs"],
-            criterion=CrossEntropyLoss(),
+            criterion=CrossEntropyLoss(label_smoothing=config['label_smoothing']),
             gpu_num=config["gpu_num"],
             group_picker=group_picker,
             callbacks=callbacks,

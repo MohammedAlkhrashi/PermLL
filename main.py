@@ -1,18 +1,18 @@
 import argparse
-from math import perm
 
 import torch
-import wandb
 from torch.nn.modules import CrossEntropyLoss
+
+import wandb
 from callbacks import (
+    CallbackGroupPickerReseter,
     CallbackLearningRateScheduler,
     CallbackNoisyStatistics,
     CallbackPermutationStats,
 )
-
 from dataset import cifar_10_dataloaders, create_train_transform
 from group_utils import GroupPicker, create_group_model, create_group_optimizer
-from model import GroupModel, PermutationModel
+from model import GroupModel
 from train import TrainPermutation
 
 
@@ -48,6 +48,7 @@ def get_config():
     parser.add_argument("--num_workers", type=int, default=15)
     parser.add_argument("--num_generations", type=int, default=1)
     parser.add_argument("--perm_init_value", type=int, default=4)
+    parser.add_argument("--reshuffle_groups", type=str2bool, default=False)
     args = parser.parse_args()
     return vars(args)
 
@@ -88,6 +89,7 @@ def main():
             permutation_lr=config["permutation_lr"],
             weight_decay=config["weight_decay"],
         )
+
         callbacks = [CallbackNoisyStatistics(), CallbackPermutationStats()]
         if config["with_lr_scheduler"]:
             callbacks.append(
@@ -98,6 +100,9 @@ def main():
                     steps_per_epoch=len(loaders["train"]),
                 )
             )
+        if config["reshuffle_groups"]:
+            callbacks.append(CallbackGroupPickerReseter(group_picker))
+
         TrainPermutation(
             model=model,
             optimizer=optimizer,

@@ -2,3 +2,4 @@ dataset/
 __pycache__
 wandb/
 .ipynb*/
+dict_to_args.py

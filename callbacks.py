@@ -1,6 +1,8 @@
 import torch
 import wandb
 
+from group_utils import GroupPicker
+
 
 class Callback:
     def on_step_end(self, metrics, name):
@@ -101,5 +103,19 @@ class CallbackLearningRateScheduler(Callback):
         if name == "train":
             self.sched.step()
 
+    def on_epoch_end(self, metrics, epoch, name):
+        pass
+
+
+class CallbackGroupPickerReseter(Callback):
+    def __init__(self, group_picker: GroupPicker):
+        self.group_picker = group_picker
+        self.count = 0 
+
+    def on_step_end(self, metrics, name):
+        self.count += 1
+        if self.count % self.group_picker.num_groups == 0:
+            self.group_picker.create_new_groups()
+            
     def on_epoch_end(self, metrics, epoch, name):
         pass

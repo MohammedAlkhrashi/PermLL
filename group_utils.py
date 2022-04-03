@@ -6,6 +6,7 @@ import torch.nn as nn
 from torch.optim import SGD, Adam
 
 from model import GroupModel
+from resnet import ResNet18, ResNet34
 
 
 class GroupLoss(nn.Module):
@@ -97,6 +98,15 @@ def create_group_optimizer(
     )
 
 
+def model_from_name(model_name):
+    if model_name == "resnet18":
+        ResNet18()
+    elif model_name == "resnet34":
+        ResNet34()
+    else:
+        timm.create_model(model_name, pretrained=False, num_classes=10)
+
+
 def create_group_model(
     num_of_networks,
     pretrained,
@@ -108,9 +118,7 @@ def create_group_model(
 ):
     models = nn.ModuleList()
     for _ in range(num_of_networks):
-        model = timm.create_model(
-            model_name, pretrained=pretrained, num_classes=num_classes
-        )
+        model = model_from_name(model_name)
         models.append(model)
     group_model = GroupModel(
         models, num_classes, dataset_targets, perm_init_value, disable_perm

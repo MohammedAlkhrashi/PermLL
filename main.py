@@ -44,14 +44,14 @@ def get_config():
     parser.add_argument("--permutation_lr", type=float, default=80.0)
     parser.add_argument("--weight_decay", type=float, default=0.0)
     parser.add_argument("--epochs", type=int, default=200)
-    parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--pretrained", type=str2bool, default=False)
     parser.add_argument("--disable_perm", type=str2bool, default=False)
     parser.add_argument("--with_lr_scheduler", type=str2bool, default=True)
     parser.add_argument("--grad_clip", type=float, default=-1)
     parser.add_argument("--networks_optim", type=str, default="adam")
     parser.add_argument("--noise", type=float, default=0.3)
-    parser.add_argument("--upperbound_exp", type=str2bool, default=False)
+    parser.add_argument("--upperbound_exp", type=str2bool, default=False) # do we need this hparam?
     parser.add_argument("--networks_per_group", type=int, default=1)
     parser.add_argument("--num_groups", type=int, default=1)
     parser.add_argument("--change_every", type=int, default=1)
@@ -64,6 +64,7 @@ def get_config():
     parser.add_argument("--new_label_source", type=str, default='alpha_matrix', choices=['alpha_matrix', 'prediction_before_perm'])
     parser.add_argument("--reshuffle_groups", type=str2bool, default=False)
     parser.add_argument("--label_smoothing", type=float, default=0)
+    parser.add_argument("--augmentation", type=str, default='default', choices=['AutoAugment', 'default'])
     args = parser.parse_args()
     return vars(args)
 
@@ -71,7 +72,7 @@ def get_config():
 def main():
     config = get_config()
     wandb.init(project="test-project", entity="nnlp", config=config)
-    train_transform = create_train_transform()
+    train_transform = create_train_transform(config['augmentation'])
     loaders = cifar_10_dataloaders(
         batch_size=config["batch_size"],
         noise=config["noise"],

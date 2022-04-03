@@ -6,6 +6,7 @@ import torchvision
 import torchvision.transforms as transforms
 from torch import Tensor
 from torch.utils.data import DataLoader, Dataset
+from autoaugment import CIFAR10Policy
 
 NORMALIZATION = ((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
 
@@ -101,14 +102,23 @@ def cifar_10_dataloaders(
     }
 
 
-def create_train_transform():
+def create_train_transform(augmentation):
     transforms_list = []
-    transforms_list.append(
-        transforms.RandomCrop(32, padding=4, padding_mode="reflect"),
-    )
-    transforms_list.append(transforms.RandomHorizontalFlip())
-    transforms_list.append(transforms.ToTensor())
-    transforms_list.append(transforms.Normalize(*NORMALIZATION))
+    if augmentation == 'default':
+        transforms_list.append(
+            transforms.RandomCrop(32, padding=4, padding_mode="reflect"),
+        )
+        transforms_list.append(transforms.RandomHorizontalFlip())
+        transforms_list.append(transforms.ToTensor())
+        transforms_list.append(transforms.Normalize(*NORMALIZATION))
+    elif augmentation == 'AutoAugment':
+        transforms_list.append(transforms.RandomCrop(32, padding=4, fill=128))
+        transforms_list.append(transforms.RandomHorizontalFlip())
+        transforms_list.append(CIFAR10Policy())
+        transforms_list.append(transforms.ToTensor())
+        transforms_list.append(transforms.Normalize(*NORMALIZATION))
+    else:
+        raise NotImplementedError
     train_transform = transforms.Compose(transforms_list)
     return train_transform
 

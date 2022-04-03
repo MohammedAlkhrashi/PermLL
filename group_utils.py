@@ -100,11 +100,11 @@ def create_group_optimizer(
 
 def model_from_name(model_name):
     if model_name == "resnet18":
-        ResNet18()
+        return ResNet18()
     elif model_name == "resnet34":
-        ResNet34()
+        return ResNet34()
     else:
-        timm.create_model(model_name, pretrained=False, num_classes=10)
+        return timm.create_model(model_name, pretrained=False, num_classes=10)
 
 
 def create_group_model(

@@ -19,6 +19,7 @@ class Callback:
 class CallbackNoisyStatistics(Callback):
     def __init__(self) -> None:
         self.reset()
+        self.best_clean_acc = 0
 
     def reset(self):
         self.running_loss = 0
@@ -42,14 +43,16 @@ class CallbackNoisyStatistics(Callback):
         )
         self.total += metrics["batch"]["noisy_label"].size(0)
 
-        if name == 'train':
+        if name == "train":
             self.all_train_prediction_before_perm_list.append(prediction_before_perm)
             self.all_sample_index_list.append(metrics["sample_index"])
 
     def on_epoch_end(self, metrics, epoch, name):
         self.log_stats(name, epoch)
-        if name == 'train':
-            self.all_train_prediction_before_perm = torch.cat(self.all_train_prediction_before_perm_list).detach().cpu()
+        if name == "train":
+            self.all_train_prediction_before_perm = (
+                torch.cat(self.all_train_prediction_before_perm_list).detach().cpu()
+            )
             self.all_sample_index = torch.cat(self.all_sample_index_list).detach().cpu()
         self.reset()
 
@@ -57,17 +60,25 @@ class CallbackNoisyStatistics(Callback):
         pass
 
     def log_stats(self, name, epoch):
-        wandb.log({f"{name}_clean_accuracy": self.clean_running_correct / self.total})
-        wandb.log({f"{name}_noisy_accuracy": self.noisy_running_correct / self.total})
+        clean_acc = self.clean_running_correct / self.total
+        noisy_acc = self.noisy_running_correct / self.total
+
+        if clean_acc > self.best_clean_acc:
+            self.best_clean_acc = clean_acc
+        wandb.log({f"{name}_clean_accuracy": clean_acc})
+        wandb.log({f"{name}_best_clean_acc": self.best_clean_acc})
+        wandb.log({f"{name}_noisy_accuracy": noisy_acc})
         wandb.log({f"{name}_noisy_loss": self.running_loss / self.total})
         print(f"{name}_clean acc = {self.clean_running_correct / self.total}")
         print(f"{name}_noisy acc = {self.noisy_running_correct / self.total}")
+
 
 def permuted_samples(metrics):
     _, alpha_label = torch.max(metrics["alpha_matrix"].detach().cpu(), 1)
     sample_permuted = alpha_label != metrics["all_noisy_labels"]
     num_permuted_samples = sample_permuted.sum().item()
     return alpha_label, sample_permuted, num_permuted_samples
+
 
 class CallbackPermutationStats(Callback):
     def __init__(self):
@@ -77,10 +88,15 @@ class CallbackPermutationStats(Callback):
         pass
 
     def on_epoch_end(self, metrics, epoch, name):
-        alpha_label, sample_permuted, self.num_permuted_samples = permuted_samples(metrics)
+        alpha_label, sample_permuted, self.num_permuted_samples = permuted_samples(
+            metrics
+        )
         noisy_sample = metrics["all_noisy_labels"] != metrics["all_clean_labels"]
         self.correct_to_false = (
-            (~noisy_sample) * (alpha_label != metrics["all_clean_labels"]) # TODO:check this what if we relabel
+            (~noisy_sample)
+            * (
+                alpha_label != metrics["all_clean_labels"]
+            )  # TODO:check this what if we relabel
         ).sum()
         self.false_to_correct = (
             noisy_sample * (alpha_label == metrics["all_clean_labels"])
@@ -95,10 +111,11 @@ class CallbackPermutationStats(Callback):
         ).sum() / metrics["all_clean_labels"].shape[0]
 
         self.log_stats(name)
-        
-        print(f"number of permuted samples based on alpha_matrix = {self.num_permuted_samples}: ({colored(self.false_to_correct.item(), 'green')},  {colored(self.false_to_false.item(), 'yellow')}, {colored(self.correct_to_false.item(), 'red')})")
+
+        print(
+            f"number of permuted samples based on alpha_matrix = {self.num_permuted_samples}: ({colored(self.false_to_correct.item(), 'green')},  {colored(self.false_to_false.item(), 'yellow')}, {colored(self.correct_to_false.item(), 'red')})"
+        )
         print(f"expected new label accuracy = {self.expected_new_label_accuracy}")
-    
 
     def on_training_end(self, metrics):
         pass
@@ -161,4 +178,6 @@ class CallbackLabelCorrectionStats(Callback):
         os.makedirs(log_dir, exist_ok=True)
         loged_metrics = ["all_noisy_labels", "all_clean_labels", "alpha_matrix"]
         for metric in loged_metrics:
-            torch.save(metrics[metric].detach().cpu(), os.path.join(log_dir, metric+'.pt'))
+            torch.save(
+                metrics[metric].detach().cpu(), os.path.join(log_dir, metric + ".pt")
+            )

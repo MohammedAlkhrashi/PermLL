@@ -71,13 +71,16 @@ class CallbackNoisyStatistics(Callback):
         clean_acc = self.clean_running_correct / self.total
         noisy_acc = self.noisy_running_correct / self.total
 
-        if clean_acc > self.best_clean_acc:
-            self.best_clean_acc = clean_acc
-            self.count_no_improvment = 0
-        else:
-            self.count_no_improvment += 1
+        if name == 'val':
+            if clean_acc > self.best_clean_acc:
+                self.best_clean_acc = clean_acc
+                self.count_no_improvment = 0
+            else:
+                self.count_no_improvment += 1
+
+            wandb.log({f"val_best_clean_acc": self.best_clean_acc})
+
         wandb.log({f"{name}_clean_accuracy": clean_acc})
-        wandb.log({f"{name}_best_clean_acc": self.best_clean_acc})
         wandb.log({f"{name}_noisy_accuracy": noisy_acc})
         wandb.log({f"{name}_noisy_loss": self.running_loss / self.total})
         print(f"{name}_clean acc = {self.clean_running_correct / self.total}")

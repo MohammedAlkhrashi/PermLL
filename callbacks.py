@@ -6,6 +6,9 @@ from group_utils import GroupPicker
 
 
 class Callback:
+    def early_stop(self):
+        return False
+
     def on_step_end(self, metrics, name):
         raise NotImplementedError
 
@@ -17,9 +20,11 @@ class Callback:
 
 
 class CallbackNoisyStatistics(Callback):
-    def __init__(self) -> None:
+    def __init__(self, max_no_improvement=10) -> None:
         self.reset()
         self.best_clean_acc = 0
+        self.max_no_improvement = max_no_improvement
+        self.count_no_improvment = 0
 
     def reset(self):
         self.running_loss = 0
@@ -28,6 +33,9 @@ class CallbackNoisyStatistics(Callback):
         self.total = 0
         self.all_train_prediction_before_perm_list = []
         self.all_sample_index_list = []
+
+    def early_stop(self):
+        return self.count_no_improvment == self.max_no_improvement
 
     def on_step_end(self, metrics, name):
         self.running_loss += metrics["loss"]
@@ -65,6 +73,9 @@ class CallbackNoisyStatistics(Callback):
 
         if clean_acc > self.best_clean_acc:
             self.best_clean_acc = clean_acc
+            self.count_no_improvment = 0
+        else:
+            self.count_no_improvment += 1
         wandb.log({f"{name}_clean_accuracy": clean_acc})
         wandb.log({f"{name}_best_clean_acc": self.best_clean_acc})
         wandb.log({f"{name}_noisy_accuracy": noisy_acc})

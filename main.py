@@ -54,6 +54,13 @@ def get_config():
     parser.add_argument("--with_lr_scheduler", type=str2bool, default=True)
     parser.add_argument("--grad_clip", type=float, default=-1)
     parser.add_argument("--networks_optim", type=str, default="adam")
+    parser.add_argument("--label_smoothing", type=float, default=0)
+    parser.add_argument(
+        "--augmentation",
+        type=str,
+        default="default",
+        choices=["AutoAugment", "default"],
+    )
     parser.add_argument("--noise", type=float, default=0.3)
     parser.add_argument(
         "--upperbound_exp", type=str2bool, default=False
@@ -79,13 +86,6 @@ def get_config():
         choices=["alpha_matrix", "prediction_before_perm"],
     )
     parser.add_argument("--reshuffle_groups", type=str2bool, default=False)
-    parser.add_argument("--label_smoothing", type=float, default=0)
-    parser.add_argument(
-        "--augmentation",
-        type=str,
-        default="default",
-        choices=["AutoAugment", "default"],
-    )
     args = parser.parse_args()
     return vars(args)
 

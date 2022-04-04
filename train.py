@@ -86,6 +86,7 @@ class TrainPermutation:
 
         for callback in self.callbacks:
             callback.on_epoch_end(metrics, epoch, name)
+
         return metrics
 
     def start(self):
@@ -96,9 +97,17 @@ class TrainPermutation:
             self.model.eval()
             with torch.no_grad():
                 self.one_epoch(epoch, val_epoch=True)
-            
+
+            for callback in self.callbacks:
+                if callback.early_stop():
+                    # Stop training no improvement
+                    return
+
             _, _, num_permuted_samples = permuted_samples(metrics)
-            if num_permuted_samples > self.num_permutation_limit and self.num_permutation_limit != -1:
+            if (
+                num_permuted_samples > self.num_permutation_limit
+                and self.num_permutation_limit != -1
+            ):
                 return
 
         for callback in self.callbacks:

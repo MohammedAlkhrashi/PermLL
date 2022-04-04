@@ -101,7 +101,7 @@ class TrainPermutation:
             for callback in self.callbacks:
                 if callback.early_stop():
                     # Stop training no improvement
-                    print()
+                    print("Stopping: No improvment for while.")
                     return
 
             _, _, num_permuted_samples = permuted_samples(metrics)

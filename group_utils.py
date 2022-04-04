@@ -70,7 +70,7 @@ class GroupOptimizer:
 
 
 def create_group_optimizer(
-    model, networks_optim_choice, networks_lr, permutation_lr, weight_decay
+    model, networks_optim_choice, networks_lr, permutation_lr, weight_decay, momentum
 ):
 
     networks_params = []
@@ -82,15 +82,25 @@ def create_group_optimizer(
             networks_params.append(param)
 
     if networks_optim_choice == "sgd":
-        NetworkOptim = SGD
+        NetworkOptim = SGD(
+            networks_params,
+            lr=networks_lr,
+            weight_decay=weight_decay,
+            momentum=momentum,
+        )
+
     elif networks_optim_choice == "adam":
-        NetworkOptim = Adam
+        NetworkOptim = Adam(
+            networks_params, lr=networks_lr, weight_decay=weight_decay
+        )
+
     else:
         raise ValueError()
 
-    networks_optimizer = NetworkOptim(
-        networks_params, lr=networks_lr, weight_decay=weight_decay
-    )
+    # networks_optimizer = NetworkOptim(
+    #     networks_params, lr=networks_lr, weight_decay=weight_decay, momentum=momentum
+    # )
+    networks_optimizer = NetworkOptim
     permutation_optimizer = SGD(permutations_params, lr=permutation_lr)
     return GroupOptimizer(
         networks_optimizer=networks_optimizer,
@@ -104,6 +114,7 @@ def model_from_name(model_name):
     elif model_name == "resnet34":
         return ResNet34()
     else:
+        print("WARNING: Model loaded from timm,ignore if expected")
         return timm.create_model(model_name, pretrained=False, num_classes=10)
 
 

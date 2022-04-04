@@ -126,6 +126,7 @@ def main():
             networks_lr=config["networks_lr"],
             permutation_lr=config["permutation_lr"],
             weight_decay=config["weight_decay"],
+            momentum=config["momentum"],
         )
         callbacks = [
             CallbackNoisyStatistics(),

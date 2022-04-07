@@ -90,9 +90,7 @@ def create_group_optimizer(
         )
 
     elif networks_optim_choice == "adam":
-        NetworkOptim = Adam(
-            networks_params, lr=networks_lr, weight_decay=weight_decay
-        )
+        NetworkOptim = Adam(networks_params, lr=networks_lr, weight_decay=weight_decay)
 
     else:
         raise ValueError()
@@ -124,6 +122,7 @@ def create_group_model(
     num_classes,
     dataset_targets,
     perm_init_value,
+    avg_before_perm,
     model_name="resnet18",
     disable_perm=False,
 ):
@@ -132,7 +131,12 @@ def create_group_model(
         model = model_from_name(model_name)
         models.append(model)
     group_model = GroupModel(
-        models, num_classes, dataset_targets, perm_init_value, disable_perm
+        models,
+        num_classes,
+        dataset_targets,
+        perm_init_value,
+        avg_before_perm,
+        disable_perm,
     )
     return group_model
 

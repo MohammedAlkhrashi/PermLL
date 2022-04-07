@@ -1,6 +1,8 @@
+from audioop import avg
 import timm
 import torch
 import torch.nn as nn
+from torch.nn.functional import normalize
 
 
 class GroupModel(nn.Module):
@@ -10,10 +12,12 @@ class GroupModel(nn.Module):
         num_classes: int,
         dataset_targets,
         perm_init_value,
+        avg_before_perm,
         disable_perm=False,
     ) -> None:
         super().__init__()
         self.models = models
+        self.avg_before_perm = avg_before_perm
         self.perm_model = PermutationModel(
             num_classes,
             dataset_targets,
@@ -22,15 +26,27 @@ class GroupModel(nn.Module):
         )
 
     def forward(self, x, target, sample_index, network_indices):
-        outputs = []
+        all_permuted_logits = []
         all_unpermuted_logits = []
-        for index in network_indices:
-            model = self.models[index]
-            logits = model(x)
-            permuted_logits = self.perm_model(logits, target, sample_index)
-            outputs.append(permuted_logits)
-            all_unpermuted_logits.append(logits)
-        return outputs, all_unpermuted_logits
+        if self.avg_before_perm:
+            for index in network_indices:
+                model = self.models[index]
+                logits = model(x)
+                all_unpermuted_logits.append(logits)
+            unpermuted_logits = torch.stack(all_unpermuted_logits)
+            unpermuted_logits = normalize(unpermuted_logits, dim=2)
+            unpermuted_logits = unpermuted_logits.mean(0)
+            permuted_logits = self.perm_model(unpermuted_logits, target, sample_index)
+            all_permuted_logits.append(permuted_logits)
+            return all_permuted_logits, all_unpermuted_logits
+        else:
+            for index in network_indices:
+                model = self.models[index]
+                logits = model(x)
+                permuted_logits = self.perm_model(logits, target, sample_index)
+                all_permuted_logits.append(permuted_logits)
+                all_unpermuted_logits.append(logits)
+            return all_permuted_logits, all_unpermuted_logits
 
     def __len__(self):
         return len(self.models)

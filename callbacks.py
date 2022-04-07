@@ -20,7 +20,7 @@ class Callback:
 
 
 class CallbackNoisyStatistics(Callback):
-    def __init__(self, max_no_improvement=10) -> None:
+    def __init__(self, max_no_improvement=20) -> None:
         self.reset()
         self.best_clean_acc = 0
         self.max_no_improvement = max_no_improvement
@@ -71,7 +71,7 @@ class CallbackNoisyStatistics(Callback):
         clean_acc = self.clean_running_correct / self.total
         noisy_acc = self.noisy_running_correct / self.total
 
-        if name == 'val':
+        if name == "val":
             if clean_acc > self.best_clean_acc:
                 self.best_clean_acc = clean_acc
                 self.count_no_improvment = 0

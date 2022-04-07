@@ -86,6 +86,7 @@ def get_config():
         choices=["alpha_matrix", "prediction_before_perm"],
     )
     parser.add_argument("--reshuffle_groups", type=str2bool, default=False)
+    parser.add_argument("--avg_before_perm", type=str2bool, default=False)
     args = parser.parse_args()
     return vars(args)
 
@@ -117,6 +118,7 @@ def main():
             dataset_targets=loaders["train"].dataset.noisy_labels,
             perm_init_value=config["perm_init_value"],
             model_name=config["model_name"],
+            avg_before_perm=config["avg_before_perm"],
             disable_perm=config["disable_perm"],
         )
 

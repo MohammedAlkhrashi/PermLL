@@ -77,6 +77,7 @@ def create_group_optimizer(
     permutation_lr,
     weight_decay,
     momentum,
+    perm_optimizer,
     perm_momentum,
 ):
 
@@ -105,9 +106,15 @@ def create_group_optimizer(
     else:
         raise ValueError()
 
-    permutation_optimizer = SGD(
-        permutations_params, lr=permutation_lr, momentum=perm_momentum
-    )
+    if perm_optimizer == "sgd":
+        permutation_optimizer = SGD(
+            permutations_params, lr=permutation_lr, momentum=perm_momentum
+        )
+    elif networks_optim_choice == "adam":
+        permutation_optimizer = Adam(permutations_params, lr=permutation_lr)
+    else:
+        raise ValueError()
+
     return GroupOptimizer(
         networks_optimizer=networks_optimizer,
         permutation_optimizer=permutation_optimizer,

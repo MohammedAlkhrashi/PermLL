@@ -88,6 +88,7 @@ def get_config():
     parser.add_argument("--lr_scheduler", type=str, default="default")
     parser.add_argument("--grad_clip", type=float, default=-1)
     parser.add_argument("--networks_optim", type=str, default="adam")
+    parser.add_argument("--perm_optim", type=str, default="sgd")
     parser.add_argument("--label_smoothing", type=float, default=0)
     parser.add_argument(
         "--augmentation",
@@ -122,7 +123,7 @@ def get_config():
     parser.add_argument("--reshuffle_groups", type=str2bool, default=False)
     parser.add_argument("--avg_before_perm", type=str2bool, default=False)
     parser.add_argument("--gamma", type=float, default=0.1)
-    parser.add_argument("--milestones", type=str2list, default="100,150")
+    parser.add_argument("--milestones", type=str2list, default="150")
     parser.add_argument(
         "--early_stopping",
         type=int,
@@ -176,7 +177,9 @@ def main():
             permutation_lr=config["permutation_lr"],
             weight_decay=config["weight_decay"],
             momentum=config["momentum"],
+            perm_optimizer = config['perm_optim'],
             perm_momentum=config["perm_momentum"],
+
         )
         callbacks = [
             CallbackNoisyStatistics(max_no_improvement=config["early_stopping"]),

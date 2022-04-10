@@ -110,7 +110,7 @@ def create_group_optimizer(
         permutation_optimizer = SGD(
             permutations_params, lr=permutation_lr, momentum=perm_momentum
         )
-    elif networks_optim_choice == "adam":
+    elif perm_optimizer == "adam":
         permutation_optimizer = Adam(permutations_params, lr=permutation_lr)
     else:
         raise ValueError()

@@ -1,5 +1,4 @@
 import argparse
-from math import gamma
 
 import torch
 from torch.nn.modules import CrossEntropyLoss
@@ -14,7 +13,7 @@ from callbacks import (
     OneCycleLearningRateScheduler,
     StepLRLearningRateScheduler,
 )
-from dataset import cifar_10_dataloaders, create_train_transform
+from dataset import cifar_dataloaders, create_train_transform
 from group_utils import (
     GroupPicker,
     create_group_model,
@@ -57,6 +56,7 @@ def create_lr_scheduler(lr_scheduler, optimizer, loaders, config):
             gamma=config["gamma"],
         )
     elif lr_scheduler == "default":
+        print("Using identity learning rate scheduler")
         return IdentityCallback()
     else:
         raise NotImplementedError
@@ -129,6 +129,9 @@ def get_config():
         default=20,
         help="maximum number of iteration with no improvement, use -1 for no early stopping",
     )
+    parser.add_argument(
+        "--dataset", type=str, default="cifar10", choices=["cifar10", "cifar100"]
+    )
     args = parser.parse_args()
     return vars(args)
 
@@ -137,12 +140,13 @@ def main():
     config = get_config()
     wandb.init(project="test-project", entity="nnlp", config=config)
     train_transform = create_train_transform(config["augmentation"])
-    loaders = cifar_10_dataloaders(
+    loaders = cifar_dataloaders(
         batch_size=config["batch_size"],
         noise=config["noise"],
         num_workers=config["num_workers"],
         upperbound=config["upperbound_exp"],
         train_transform=train_transform,
+        cifar100=config["dataset"] == "cifar100",
     )
     group_picker = GroupPicker(
         networks_per_group=config["networks_per_group"],

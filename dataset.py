@@ -59,20 +59,19 @@ class NoisyDataset(Dataset):
         return len(self.dataset)
 
 
-def cifar_10_dataloaders(
-    batch_size, noise, num_workers, train_transform, upperbound=False
+def cifar_dataloaders(
+    batch_size, noise, num_workers, train_transform, upperbound=False,cifar100=False
 ):
-
     data_folder = "./dataset"
-
+    dataset = torchvision.datasets.CIFAR100 if cifar100 else torchvision.datasets.CIFAR10
     val_transform = transforms.Compose(
         [transforms.ToTensor(), transforms.Normalize(*NORMALIZATION)]
     )
-    trainset = torchvision.datasets.CIFAR10(
+    trainset = dataset(
         root=data_folder, train=True, download=True, transform=train_transform
     )
 
-    valset = torchvision.datasets.CIFAR10(
+    valset = dataset(
         root=data_folder, train=False, download=True, transform=val_transform
     )
 

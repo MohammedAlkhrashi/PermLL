@@ -46,8 +46,6 @@ class CallbackNoisyStatistics(Callback):
         self.all_sample_index_list = []
 
     def early_stop(self):
-        if self.max_no_improvement == -1:
-            return False
         return self.count_no_improvment == self.max_no_improvement
 
     def on_step_end(self, metrics, name):

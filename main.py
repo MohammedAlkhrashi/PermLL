@@ -87,6 +87,12 @@ def get_config():
     )
     parser.add_argument("--reshuffle_groups", type=str2bool, default=False)
     parser.add_argument("--avg_before_perm", type=str2bool, default=False)
+    parser.add_argument(
+        "--early_stopping",
+        type=int,
+        default=20,
+        help="maximum number of iteration with no improvement, use -1 for no early stopping",
+    )
     args = parser.parse_args()
     return vars(args)
 
@@ -131,7 +137,7 @@ def main():
             momentum=config["momentum"],
         )
         callbacks = [
-            CallbackNoisyStatistics(),
+            CallbackNoisyStatistics(max_no_improvement=config["early_stopping"]),
             CallbackPermutationStats(),
             CallbackLabelCorrectionStats(),
         ]

@@ -19,7 +19,7 @@ class Callback:
         raise NotImplementedError
 
 
-class CallbackNoisyStatistics(Callback):
+class CallbackNoisyStatistics(Callback):  # TODO: create a class for early stopping
     def __init__(self, max_no_improvement=20) -> None:
         self.reset()
         self.best_clean_acc = 0
@@ -35,6 +35,8 @@ class CallbackNoisyStatistics(Callback):
         self.all_sample_index_list = []
 
     def early_stop(self):
+        if self.max_no_improvement == -1:
+            return False
         return self.count_no_improvment == self.max_no_improvement
 
     def on_step_end(self, metrics, name):

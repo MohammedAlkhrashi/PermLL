@@ -1,4 +1,5 @@
 import argparse
+from math import gamma
 
 import torch
 from torch.nn.modules import CrossEntropyLoss
@@ -6,15 +7,28 @@ from torch.nn.modules import CrossEntropyLoss
 import wandb
 from callbacks import (
     CallbackGroupPickerReseter,
-    CallbackLearningRateScheduler,
     CallbackNoisyStatistics,
     CallbackPermutationStats,
     CallbackLabelCorrectionStats,
+    IdentityCallback,
+    OneCycleLearningRateScheduler,
+    StepLRLearningRateScheduler,
 )
 from dataset import cifar_10_dataloaders, create_train_transform
-from group_utils import GroupPicker, create_group_model, create_group_optimizer
+from group_utils import (
+    GroupPicker,
+    create_group_model,
+    create_group_optimizer,
+)
 from model import GroupModel
 from train import TrainPermutation
+
+
+def str2list(v):
+    """
+    example: v="100,150" return [100,150]
+    """
+    return list(map(int, v.split(",")))
 
 
 def str2bool(v):
@@ -26,6 +40,26 @@ def str2bool(v):
         return False
     else:
         raise argparse.ArgumentTypeError("Boolean value expected.")
+
+
+def create_lr_scheduler(lr_scheduler, optimizer, loaders, config):
+    if lr_scheduler == "one_cycle":
+        return OneCycleLearningRateScheduler(
+            optimizer.network_optimizer,
+            max_lr=config["networks_lr"],
+            epochs=config["epochs"],
+            steps_per_epoch=len(loaders["train"]),
+        )
+    elif lr_scheduler == "step_lr":
+        return StepLRLearningRateScheduler(
+            optimizer.network_optimizer,
+            milestones=config["milestones"],
+            gamma=config["gamma"],
+        )
+    elif lr_scheduler == "default":
+        return IdentityCallback()
+    else:
+        raise NotImplementedError
 
 
 def get_new_labels(
@@ -51,7 +85,7 @@ def get_config():
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--pretrained", type=str2bool, default=False)
     parser.add_argument("--disable_perm", type=str2bool, default=False)
-    parser.add_argument("--with_lr_scheduler", type=str2bool, default=True)
+    parser.add_argument("--lr_scheduler", type=str, default="default")
     parser.add_argument("--grad_clip", type=float, default=-1)
     parser.add_argument("--networks_optim", type=str, default="adam")
     parser.add_argument("--label_smoothing", type=float, default=0)
@@ -87,6 +121,8 @@ def get_config():
     )
     parser.add_argument("--reshuffle_groups", type=str2bool, default=False)
     parser.add_argument("--avg_before_perm", type=str2bool, default=False)
+    parser.add_argument("--gamma", type=float, default=0.1)
+    parser.add_argument("--milestones", type=str2list, default="100,150")
     args = parser.parse_args()
     return vars(args)
 
@@ -110,7 +146,7 @@ def main():
         else len(loaders["train"]),
     )
 
-    for gen in range(config["num_generations"]):
+    for _ in range(config["num_generations"]):
         model: GroupModel = create_group_model(
             config["networks_per_group"] * config["num_groups"],
             num_classes=10,
@@ -134,16 +170,8 @@ def main():
             CallbackNoisyStatistics(),
             CallbackPermutationStats(),
             CallbackLabelCorrectionStats(),
+            create_lr_scheduler(config["lr_scheduler"], optimizer, loaders, config),
         ]
-        if config["with_lr_scheduler"]:
-            callbacks.append(
-                CallbackLearningRateScheduler(
-                    optimizer.network_optimizer,
-                    config["networks_lr"],
-                    config["epochs"],
-                    steps_per_epoch=len(loaders["train"]),
-                )
-            )
         if config["reshuffle_groups"]:
             callbacks.append(CallbackGroupPickerReseter(group_picker))
 

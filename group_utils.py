@@ -80,9 +80,10 @@ def create_group_optimizer(
             permutations_params.append(param)
         else:
             networks_params.append(param)
+    assert len(permutations_params) != 0
 
     if networks_optim_choice == "sgd":
-        NetworkOptim = SGD(
+        networks_optimizer = SGD(
             networks_params,
             lr=networks_lr,
             weight_decay=weight_decay,
@@ -90,15 +91,13 @@ def create_group_optimizer(
         )
 
     elif networks_optim_choice == "adam":
-        NetworkOptim = Adam(networks_params, lr=networks_lr, weight_decay=weight_decay)
+        networks_optimizer = Adam(
+            networks_params, lr=networks_lr, weight_decay=weight_decay
+        )
 
     else:
         raise ValueError()
 
-    # networks_optimizer = NetworkOptim(
-    #     networks_params, lr=networks_lr, weight_decay=weight_decay, momentum=momentum
-    # )
-    networks_optimizer = NetworkOptim
     permutation_optimizer = SGD(permutations_params, lr=permutation_lr)
     return GroupOptimizer(
         networks_optimizer=networks_optimizer,

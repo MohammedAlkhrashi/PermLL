@@ -19,6 +19,17 @@ class Callback:
         raise NotImplementedError
 
 
+class IdentityCallback(Callback):
+    def on_step_end(self, metrics, name):
+        pass
+
+    def on_epoch_end(self, metrics, epoch, name):
+        pass
+
+    def on_training_end(self, metrics):
+        pass
+
+
 class CallbackNoisyStatistics(Callback):
     def __init__(self, max_no_improvement=20) -> None:
         self.reset()
@@ -142,7 +153,25 @@ class CallbackPermutationStats(Callback):
         wandb.log({"expected_new_label_accuracy": self.expected_new_label_accuracy})
 
 
-class CallbackLearningRateScheduler(Callback):
+class StepLRLearningRateScheduler(Callback):
+    def __init__(self, optimizer, milestones: str, gamma, last_epoch=-1):
+        self.sched = torch.optim.lr_scheduler.MultiStepLR(
+            optimizer, milestones=milestones, gamma=gamma, last_epoch=last_epoch
+        )
+
+    def on_step_end(self, metrics, name):
+        pass
+
+    def on_epoch_end(self, metrics, epoch, name):
+        if name == "train":
+            self.sched.step()
+            wandb.log({"learning_rate": self.sched.get_lr()[0]})
+
+    def on_training_end(self, metrics):
+        pass
+
+
+class OneCycleLearningRateScheduler(Callback):
     def __init__(self, optimizer, max_lr, epochs, steps_per_epoch):
         self.sched = torch.optim.lr_scheduler.OneCycleLR(
             optimizer, max_lr, epochs=epochs, steps_per_epoch=steps_per_epoch
@@ -153,7 +182,8 @@ class CallbackLearningRateScheduler(Callback):
             self.sched.step()
 
     def on_epoch_end(self, metrics, epoch, name):
-        pass
+        if name == "train":
+            wandb.log({"learning_rate": self.sched.get_lr()[0]})
 
     def on_training_end(self, metrics):
         pass
@@ -195,3 +225,4 @@ class CallbackLabelCorrectionStats(Callback):
             torch.save(
                 metrics[metric].detach().cpu(), os.path.join(log_dir, metric + ".pt")
             )
+

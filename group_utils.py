@@ -7,6 +7,7 @@ from torch.optim import SGD, Adam
 
 from model import GroupModel
 from resnet import ResNet18, ResNet34
+from PreResNet import PreActResNet18, PreActResNet34
 
 
 class GroupLoss(nn.Module):
@@ -111,6 +112,10 @@ def model_from_name(model_name):
         return ResNet18()
     elif model_name == "resnet34":
         return ResNet34()
+    elif model_name == "preactresnet18":
+        return PreActResNet18()
+    elif model_name == "preactresnet34":
+        return PreActResNet34()
     else:
         print("WARNING: Model loaded from timm,ignore if expected")
         return timm.create_model(model_name, pretrained=False, num_classes=10)

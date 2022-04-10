@@ -34,11 +34,11 @@ class GroupModel(nn.Module):
                 logits = model(x)
                 all_unpermuted_logits.append(logits)
             unpermuted_logits = torch.stack(all_unpermuted_logits)
-            unpermuted_logits = normalize(unpermuted_logits, dim=2)
+            # unpermuted_logits = normalize(unpermuted_logits, dim=2)
             unpermuted_logits = unpermuted_logits.mean(0)
             permuted_logits = self.perm_model(unpermuted_logits, target, sample_index)
             all_permuted_logits.append(permuted_logits)
-            return all_permuted_logits, all_unpermuted_logits
+            return all_permuted_logits, [unpermuted_logits]
         else:
             for index in network_indices:
                 model = self.models[index]

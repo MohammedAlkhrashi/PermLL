@@ -71,7 +71,13 @@ class GroupOptimizer:
 
 
 def create_group_optimizer(
-    model, networks_optim_choice, networks_lr, permutation_lr, weight_decay, momentum
+    model,
+    networks_optim_choice,
+    networks_lr,
+    permutation_lr,
+    weight_decay,
+    momentum,
+    perm_momentum,
 ):
 
     networks_params = []
@@ -99,7 +105,9 @@ def create_group_optimizer(
     else:
         raise ValueError()
 
-    permutation_optimizer = SGD(permutations_params, lr=permutation_lr)
+    permutation_optimizer = SGD(
+        permutations_params, lr=permutation_lr, momentum=perm_momentum
+    )
     return GroupOptimizer(
         networks_optimizer=networks_optimizer,
         permutation_optimizer=permutation_optimizer,

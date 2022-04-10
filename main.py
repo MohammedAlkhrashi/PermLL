@@ -132,6 +132,7 @@ def get_config():
     parser.add_argument(
         "--dataset", type=str, default="cifar10", choices=["cifar10", "cifar100"]
     )
+    parser.add_argument("--perm_momentum", type=float, default=0)
     args = parser.parse_args()
     return vars(args)
 
@@ -175,6 +176,7 @@ def main():
             permutation_lr=config["permutation_lr"],
             weight_decay=config["weight_decay"],
             momentum=config["momentum"],
+            perm_momentum=config["perm_momentum"],
         )
         callbacks = [
             CallbackNoisyStatistics(max_no_improvement=config["early_stopping"]),

@@ -189,6 +189,22 @@ class OneCycleLearningRateScheduler(Callback):
         pass
 
 
+class CosineAnnealingLRScheduler(Callback):
+    def __init__(self, optimizer, steps):
+        self.sched = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=steps)
+
+    def on_step_end(self, metrics, name):
+        if name == "train":
+            self.sched.step()
+
+    def on_epoch_end(self, metrics, epoch, name):
+        if name == "train":
+            wandb.log({"learning_rate": self.sched.get_lr()[0]})
+
+    def on_training_end(self, metrics):
+        pass
+
+
 class CallbackGroupPickerReseter(Callback):
     def __init__(self, group_picker: GroupPicker):
         self.group_picker = group_picker

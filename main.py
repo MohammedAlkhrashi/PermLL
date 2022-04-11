@@ -9,6 +9,7 @@ from callbacks import (
     CallbackNoisyStatistics,
     CallbackPermutationStats,
     CallbackLabelCorrectionStats,
+    CosineAnnealingLRScheduler,
     IdentityCallback,
     OneCycleLearningRateScheduler,
     StepLRLearningRateScheduler,
@@ -49,6 +50,10 @@ def create_lr_scheduler(lr_scheduler, optimizer, loaders, config):
             epochs=config["epochs"],
             steps_per_epoch=len(loaders["train"]),
         )
+    elif lr_scheduler == "cosine":
+        return CosineAnnealingLRScheduler(
+            optimizer.network_optimizer, steps=config["epochs"] * len(loaders["train"])
+        )
     elif lr_scheduler == "step_lr":
         return StepLRLearningRateScheduler(
             optimizer.network_optimizer,
@@ -85,7 +90,12 @@ def get_config():
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--pretrained", type=str2bool, default=False)
     parser.add_argument("--disable_perm", type=str2bool, default=False)
-    parser.add_argument("--lr_scheduler", type=str, default="default")
+    parser.add_argument(
+        "--lr_scheduler",
+        type=str,
+        default="default",
+        choices=["default", "one_cycle", "cosine"],
+    )
     parser.add_argument("--grad_clip", type=float, default=-1)
     parser.add_argument("--networks_optim", type=str, default="adam")
     parser.add_argument("--perm_optim", type=str, default="sgd")
@@ -161,7 +171,7 @@ def main():
     for _ in range(config["num_generations"]):
         model: GroupModel = create_group_model(
             config["networks_per_group"] * config["num_groups"],
-            num_classes=10 if config['dataset'] == 'cifar10' else 100,
+            num_classes=10 if config["dataset"] == "cifar10" else 100,
             pretrained=config["pretrained"],
             dataset_targets=loaders["train"].dataset.noisy_labels,
             perm_init_value=config["perm_init_value"],
@@ -177,9 +187,8 @@ def main():
             permutation_lr=config["permutation_lr"],
             weight_decay=config["weight_decay"],
             momentum=config["momentum"],
-            perm_optimizer = config['perm_optim'],
+            perm_optimizer=config["perm_optim"],
             perm_momentum=config["perm_momentum"],
-
         )
         callbacks = [
             CallbackNoisyStatistics(max_no_improvement=config["early_stopping"]),

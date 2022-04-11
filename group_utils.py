@@ -121,18 +121,18 @@ def create_group_optimizer(
     )
 
 
-def model_from_name(model_name):
+def model_from_name(model_name,num_classes):
     if model_name == "resnet18":
-        return ResNet18()
+        return ResNet18(num_classes)
     elif model_name == "resnet34":
-        return ResNet34()
+        return ResNet34(num_classes)
     elif model_name == "preactresnet18":
-        return PreActResNet18()
+        return PreActResNet18(num_classes)
     elif model_name == "preactresnet34":
-        return PreActResNet34()
+        return PreActResNet34(num_classes)
     else:
         print("WARNING: Model loaded from timm,ignore if expected")
-        return timm.create_model(model_name, pretrained=False, num_classes=10)
+        return timm.create_model(model_name, pretrained=False, num_classes=num_classes)
 
 
 def create_group_model(
@@ -147,7 +147,7 @@ def create_group_model(
 ):
     models = nn.ModuleList()
     for _ in range(num_of_networks):
-        model = model_from_name(model_name)
+        model = model_from_name(model_name,num_classes)
         models.append(model)
     group_model = GroupModel(
         models,

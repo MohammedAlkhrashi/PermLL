@@ -29,6 +29,27 @@ def apply_noise(labels: Tensor, noise: float):
     return labels
 
 
+def balanced_apply_noise(labels: Tensor, noise: float):
+    random.seed(42)
+
+    original = labels.clone()
+    labels = labels.clone()
+    classes = labels.unique()
+    labels_per_class = int(len(labels) / len(classes))
+    labels_to_change_per_class = int(labels_per_class * noise)
+    for cur_class in classes:
+        other_classes = classes[classes != cur_class]
+        idxs_to_change = random.sample(
+            range(labels_per_class), k=labels_to_change_per_class
+        )
+        idxs_with_cur_class_label = torch.where(original == cur_class)[0]
+        print(len(idxs_with_cur_class_label))
+        counter = cur_class.item() - 1  # random.randint(0, len(other_classes)-1)
+        for idx in idxs_to_change:
+            labels[idxs_with_cur_class_label[idx]] = other_classes[counter]
+            counter = (counter + 1) % len(other_classes)
+    return labels
+
 class NoisyDataset(Dataset):
     def __init__(self, dataset: Dataset, noise=0.3, upperbound=False) -> None:
         self.dataset = dataset

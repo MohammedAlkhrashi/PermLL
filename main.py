@@ -117,7 +117,7 @@ def get_config():
     parser.add_argument("--model_name", type=str, default="resnet18")
     parser.add_argument("--num_workers", type=int, default=15)
     parser.add_argument("--num_generations", type=int, default=1)
-    parser.add_argument("--perm_init_value", type=int, default=4)
+    parser.add_argument("--perm_init_value", type=int, default=float)
     parser.add_argument(
         "--num_permutation_limit",
         type=int,

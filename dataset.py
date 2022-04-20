@@ -43,18 +43,18 @@ def balanced_apply_noise(labels: Tensor, noise: float):
             range(labels_per_class), k=labels_to_change_per_class
         )
         idxs_with_cur_class_label = torch.where(original == cur_class)[0]
-        print(len(idxs_with_cur_class_label))
         counter = cur_class.item() - 1  # random.randint(0, len(other_classes)-1)
         for idx in idxs_to_change:
             labels[idxs_with_cur_class_label[idx]] = other_classes[counter]
             counter = (counter + 1) % len(other_classes)
     return labels
 
+
 class NoisyDataset(Dataset):
     def __init__(self, dataset: Dataset, noise=0.3, upperbound=False) -> None:
         self.dataset = dataset
         self.original_labels = torch.tensor(dataset.targets)
-        self.noisy_labels = apply_noise(self.original_labels, noise)
+        self.noisy_labels = balanced_apply_noise(self.original_labels, noise)
         self.same_indices = torch.eq(self.original_labels, self.noisy_labels)
 
         if upperbound:
@@ -81,10 +81,12 @@ class NoisyDataset(Dataset):
 
 
 def cifar_dataloaders(
-    batch_size, noise, num_workers, train_transform, upperbound=False,cifar100=False
+    batch_size, noise, num_workers, train_transform, upperbound=False, cifar100=False
 ):
     data_folder = "./dataset"
-    dataset = torchvision.datasets.CIFAR100 if cifar100 else torchvision.datasets.CIFAR10
+    dataset = (
+        torchvision.datasets.CIFAR100 if cifar100 else torchvision.datasets.CIFAR10
+    )
     val_transform = transforms.Compose(
         [transforms.ToTensor(), transforms.Normalize(*NORMALIZATION)]
     )
@@ -124,14 +126,14 @@ def cifar_dataloaders(
 
 def create_train_transform(augmentation):
     transforms_list = []
-    if augmentation == 'default':
+    if augmentation == "default":
         transforms_list.append(
             transforms.RandomCrop(32, padding=4, padding_mode="reflect"),
         )
         transforms_list.append(transforms.RandomHorizontalFlip())
         transforms_list.append(transforms.ToTensor())
         transforms_list.append(transforms.Normalize(*NORMALIZATION))
-    elif augmentation == 'AutoAugment':
+    elif augmentation == "AutoAugment":
         transforms_list.append(transforms.RandomCrop(32, padding=4, fill=128))
         transforms_list.append(transforms.RandomHorizontalFlip())
         transforms_list.append(CIFAR10Policy())
@@ -141,4 +143,3 @@ def create_train_transform(augmentation):
         raise NotImplementedError
     train_transform = transforms.Compose(transforms_list)
     return train_transform
-

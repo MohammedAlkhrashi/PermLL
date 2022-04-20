@@ -220,7 +220,7 @@ class AdaptivePermLRScheduler(Callback):
         if name == "train":
             wandb.log({"perm_learning_rate": self.optimizer.param_groups[0]["lr"]})
         if name == "val":
-            last_accuracy = metrics["val_noisy_acc"]
+            last_accuracy = metrics["val_clean_acc"]
             for g in self.optimizer.param_groups:
                 g["lr"] = (
                     self.max_lr

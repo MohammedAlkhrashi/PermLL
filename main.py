@@ -189,7 +189,9 @@ def main():
             model,
             networks_optim_choice=config["networks_optim"],
             networks_lr=config["networks_lr"],
-            permutation_lr=config["permutation_lr"],
+            permutation_lr=0
+            if config["with_adaptive_perm_lr"]
+            else config["permutation_lr"],
             weight_decay=config["weight_decay"],
             momentum=config["momentum"],
             perm_optimizer=config["perm_optim"],

@@ -5,21 +5,18 @@ from torch.nn.modules import CrossEntropyLoss
 
 import wandb
 from callbacks import (
+    AdaptivePermLRScheduler,
     CallbackGroupPickerReseter,
+    CallbackLabelCorrectionStats,
     CallbackNoisyStatistics,
     CallbackPermutationStats,
-    CallbackLabelCorrectionStats,
     CosineAnnealingLRScheduler,
     IdentityCallback,
     OneCycleLearningRateScheduler,
     StepLRLearningRateScheduler,
 )
 from dataset import cifar_dataloaders, create_train_transform
-from group_utils import (
-    GroupPicker,
-    create_group_model,
-    create_group_optimizer,
-)
+from group_utils import GroupPicker, create_group_model, create_group_optimizer
 from model import GroupModel
 from train import TrainPermutation
 
@@ -42,26 +39,33 @@ def str2bool(v):
         raise argparse.ArgumentTypeError("Boolean value expected.")
 
 
+def create_adaptive_perm_lr(optimizer, perm_lr, threshold, disable=False):
+    if disable:
+        print("Using identity learning rate scheduler for perm layer")
+        return IdentityCallback()
+    return AdaptivePermLRScheduler(optimizer, threshold, perm_lr)
+
+
 def create_lr_scheduler(lr_scheduler, optimizer, loaders, config):
     if lr_scheduler == "one_cycle":
         return OneCycleLearningRateScheduler(
-            optimizer.network_optimizer,
+            optimizer,
             max_lr=config["networks_lr"],
             epochs=config["epochs"],
             steps_per_epoch=len(loaders["train"]),
         )
     elif lr_scheduler == "cosine":
         return CosineAnnealingLRScheduler(
-            optimizer.network_optimizer, steps=config["epochs"] * len(loaders["train"])
+            optimizer, steps=config["epochs"] * len(loaders["train"])
         )
     elif lr_scheduler == "step_lr":
         return StepLRLearningRateScheduler(
-            optimizer.network_optimizer,
+            optimizer,
             milestones=config["milestones"],
             gamma=config["gamma"],
         )
     elif lr_scheduler == "default":
-        print("Using identity learning rate scheduler")
+        print("Using identity learning rate scheduler for networks")
         return IdentityCallback()
     else:
         raise NotImplementedError
@@ -117,7 +121,7 @@ def get_config():
     parser.add_argument("--model_name", type=str, default="resnet18")
     parser.add_argument("--num_workers", type=int, default=15)
     parser.add_argument("--num_generations", type=int, default=1)
-    parser.add_argument("--perm_init_value", type=float, default=4)
+    parser.add_argument("--perm_init_value", type=float, default=3)
     parser.add_argument(
         "--num_permutation_limit",
         type=int,
@@ -144,7 +148,11 @@ def get_config():
         "--dataset", type=str, default="cifar10", choices=["cifar10", "cifar100"]
     )
     parser.add_argument("--perm_momentum", type=float, default=0)
+    parser.add_argument("--with_adaptive_perm_lr", type=str2bool, default=False)
+    parser.add_argument("--adaptive_min_acc", type=float, default=0.1)
+    parser.add_argument("--softmax_temp", type=float, default=1)
     args = parser.parse_args()
+    print(args)
     return vars(args)
 
 
@@ -178,13 +186,16 @@ def main():
             model_name=config["model_name"],
             avg_before_perm=config["avg_before_perm"],
             disable_perm=config["disable_perm"],
+            softmax_temp=config["softmax_temp"],
         )
 
         optimizer = create_group_optimizer(
             model,
             networks_optim_choice=config["networks_optim"],
             networks_lr=config["networks_lr"],
-            permutation_lr=config["permutation_lr"],
+            permutation_lr=0
+            if config["with_adaptive_perm_lr"]
+            else config["permutation_lr"],
             weight_decay=config["weight_decay"],
             momentum=config["momentum"],
             perm_optimizer=config["perm_optim"],
@@ -194,7 +205,15 @@ def main():
             CallbackNoisyStatistics(max_no_improvement=config["early_stopping"]),
             CallbackPermutationStats(),
             CallbackLabelCorrectionStats(),
-            create_lr_scheduler(config["lr_scheduler"], optimizer, loaders, config),
+            create_lr_scheduler(
+                config["lr_scheduler"], optimizer.network_optimizer, loaders, config
+            ),
+            create_adaptive_perm_lr(
+                optimizer.permutation_optimizer,
+                perm_lr=config["permutation_lr"],
+                threshold=config["adaptive_min_acc"],
+                disable=not config["with_adaptive_perm_lr"],
+            ),
         ]
         if config["reshuffle_groups"]:
             callbacks.append(CallbackGroupPickerReseter(group_picker))

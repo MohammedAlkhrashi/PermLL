@@ -1,8 +1,5 @@
-from audioop import avg
-import timm
 import torch
 import torch.nn as nn
-from torch.nn.functional import normalize
 
 
 class GroupModel(nn.Module):
@@ -14,6 +11,7 @@ class GroupModel(nn.Module):
         perm_init_value,
         avg_before_perm,
         disable_perm=False,
+        softmax_temp=1,
     ) -> None:
         super().__init__()
         self.models = models
@@ -23,6 +21,7 @@ class GroupModel(nn.Module):
             dataset_targets,
             perm_init_value,
             disable_module=disable_perm,
+            softmax_temp=softmax_temp,
         )
 
     def forward(self, x, target, sample_index, network_indices):
@@ -59,6 +58,7 @@ class PermutationModel(nn.Module):
         dataset_targets: list,
         perm_init_value: float,
         disable_module=False,
+        softmax_temp=1,
     ) -> None:
         super().__init__()
         self.num_classes = num_classes
@@ -69,6 +69,7 @@ class PermutationModel(nn.Module):
         self.alpha_matrix = self.create_alpha_matrix(dataset_targets)
         self.all_perm = self.create_all_perm()
 
+        self.softmax_temp = softmax_temp
         self.disable_module = disable_module
         if self.disable_module:
             print("*" * 100)
@@ -82,7 +83,7 @@ class PermutationModel(nn.Module):
             return logits
         perm = self.all_perm[target]
         perm = perm.to(self.alpha_matrix.device)
-        alpha = self.alpha_matrix[sample_index]
+        alpha = self.alpha_matrix[sample_index] / self.softmax_temp
         permutation_matrices = (
             self.softmax(alpha.unsqueeze(-1).unsqueeze(-1)) * perm
         ).sum(1)

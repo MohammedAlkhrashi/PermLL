@@ -67,7 +67,7 @@ class CallbackNoisyStatistics(Callback):
             self.all_sample_index_list.append(metrics["sample_index"])
 
     def on_epoch_end(self, metrics, epoch, name):
-        self.log_stats(name, epoch)
+        self.log_stats(name, epoch, metrics)
         if name == "train":
             self.all_train_prediction_before_perm = (
                 torch.cat(self.all_train_prediction_before_perm_list).detach().cpu()
@@ -78,11 +78,13 @@ class CallbackNoisyStatistics(Callback):
     def on_training_end(self, metrics):
         pass
 
-    def log_stats(self, name, epoch):
+    def log_stats(self, name, epoch, metrics):
         clean_acc = self.clean_running_correct / self.total
         noisy_acc = self.noisy_running_correct / self.total
 
         if name == "val":
+            metrics["val_clean_acc"] = clean_acc
+            metrics["val_noisy_acc"] = noisy_acc
             if clean_acc > self.best_clean_acc:
                 self.best_clean_acc = clean_acc
                 self.count_no_improvment = 0
@@ -200,6 +202,32 @@ class CosineAnnealingLRScheduler(Callback):
     def on_epoch_end(self, metrics, epoch, name):
         if name == "train":
             wandb.log({"learning_rate": self.sched.get_lr()[0]})
+
+    def on_training_end(self, metrics):
+        pass
+
+
+class AdaptivePermLRScheduler(Callback):
+    def __init__(self, optimizer, min_acc_threshold, max_lr=900):
+        self.optimizer: torch.optim.Optimizer = optimizer
+        self.max_lr = max_lr
+        self.min_acc_threshold = min_acc_threshold
+
+    def on_step_end(self, metrics, name):
+        pass
+
+    def on_epoch_end(self, metrics, epoch, name):
+        if name == "train":
+            wandb.log({"perm_learning_rate": self.optimizer.param_groups[0]["lr"]})
+        if name == "val":
+            last_accuracy = metrics["val_noisy_acc"]
+            for g in self.optimizer.param_groups:
+                g["lr"] = (
+                    self.max_lr
+                    * (last_accuracy - self.min_acc_threshold)
+                    / (1 - self.min_acc_threshold)
+                )
+                g["lr"] = max(0, g["lr"])
 
     def on_training_end(self, metrics):
         pass

@@ -1,8 +1,5 @@
-from audioop import avg
-import timm
 import torch
 import torch.nn as nn
-from torch.nn.functional import normalize
 
 
 class GroupModel(nn.Module):

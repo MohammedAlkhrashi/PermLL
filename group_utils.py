@@ -121,7 +121,7 @@ def create_group_optimizer(
     )
 
 
-def model_from_name(model_name,num_classes):
+def model_from_name(model_name, num_classes):
     if model_name == "resnet18":
         return ResNet18(num_classes)
     elif model_name == "resnet34":
@@ -144,10 +144,11 @@ def create_group_model(
     avg_before_perm,
     model_name="resnet18",
     disable_perm=False,
+    softmax_temp=1,
 ):
     models = nn.ModuleList()
     for _ in range(num_of_networks):
-        model = model_from_name(model_name,num_classes)
+        model = model_from_name(model_name, num_classes)
         models.append(model)
     group_model = GroupModel(
         models,
@@ -156,6 +157,7 @@ def create_group_model(
         perm_init_value,
         avg_before_perm,
         disable_perm,
+        softmax_temp=softmax_temp,
     )
     return group_model
 

@@ -148,6 +148,7 @@ def get_config():
     parser.add_argument("--perm_momentum", type=float, default=0)
     parser.add_argument("--with_adaptive_perm_lr", type=str2bool, default=False)
     parser.add_argument("--adaptive_min_acc", type=float, default=0.1)
+    parser.add_argument("--softmax_temp", type=float, default=1)
     args = parser.parse_args()
     print(args)
     return vars(args)
@@ -183,6 +184,7 @@ def main():
             model_name=config["model_name"],
             avg_before_perm=config["avg_before_perm"],
             disable_perm=config["disable_perm"],
+            softmax_temp=config['softmax_temp']
         )
 
         optimizer = create_group_optimizer(

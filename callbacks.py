@@ -174,9 +174,13 @@ class StepLRLearningRateScheduler(Callback):
 
 
 class OneCycleLearningRateScheduler(Callback):
-    def __init__(self, optimizer, max_lr, epochs, steps_per_epoch):
+    def __init__(self, optimizer, max_lr, epochs, steps_per_epoch, final_div_factor):
         self.sched = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer, max_lr, epochs=epochs, steps_per_epoch=steps_per_epoch
+            optimizer,
+            max_lr,
+            epochs=epochs,
+            steps_per_epoch=steps_per_epoch,
+            final_div_factor=final_div_factor,
         )
 
     def on_step_end(self, metrics, name):
@@ -192,8 +196,10 @@ class OneCycleLearningRateScheduler(Callback):
 
 
 class CosineAnnealingLRScheduler(Callback):
-    def __init__(self, optimizer, steps):
-        self.sched = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=steps)
+    def __init__(self, optimizer, T_0, T_mult=1):
+        self.sched = torch.optim.lr_scheduler.CosineAnnealingLRScheduler(
+            optimizer, T_0=T_0, T_mult=T_mult
+        )
 
     def on_step_end(self, metrics, name):
         if name == "train":

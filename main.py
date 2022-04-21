@@ -53,16 +53,17 @@ def create_lr_scheduler(lr_scheduler, optimizer, loaders, config):
             max_lr=config["networks_lr"],
             epochs=config["epochs"],
             steps_per_epoch=len(loaders["train"]),
+            final_div_factor=config["final_div_factor"],
         )
     elif lr_scheduler == "cosine":
         return CosineAnnealingLRScheduler(
-            optimizer, steps=config["epochs"] * len(loaders["train"])
+            optimizer,
+            T_0=config["t_zero"]
+            * len(loaders["train"], T_mult=config["t_mult"] * len(loaders["train"])),
         )
     elif lr_scheduler == "step_lr":
         return StepLRLearningRateScheduler(
-            optimizer,
-            milestones=config["milestones"],
-            gamma=config["gamma"],
+            optimizer, milestones=config["milestones"], gamma=config["gamma"],
         )
     elif lr_scheduler == "default":
         print("Using identity learning rate scheduler for networks")
@@ -151,6 +152,10 @@ def get_config():
     parser.add_argument("--with_adaptive_perm_lr", type=str2bool, default=False)
     parser.add_argument("--adaptive_min_acc", type=float, default=0.1)
     parser.add_argument("--softmax_temp", type=float, default=1)
+    parser.add_argument("--final_div_factor", type=float, default=1e4)
+    parser.add_argument("--t_zero", type=int, default=50)
+    parser.add_argument("--t_mult", type=int, default=1)
+
     args = parser.parse_args()
     print(args)
     return vars(args)

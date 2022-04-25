@@ -208,10 +208,11 @@ class CosineAnnealingLRScheduler(Callback):
 
 
 class AdaptivePermLRScheduler(Callback):
-    def __init__(self, optimizer, min_acc_threshold, max_lr=900):
+    def __init__(self, optimizer, min_acc_threshold, adaptive_lr_mode, max_lr=900):
         self.optimizer: torch.optim.Optimizer = optimizer
         self.max_lr = max_lr
         self.min_acc_threshold = min_acc_threshold
+        self.adaptive_lr_mode = adaptive_lr_mode
 
     def on_step_end(self, metrics, name):
         pass
@@ -221,13 +222,17 @@ class AdaptivePermLRScheduler(Callback):
             wandb.log({"perm_learning_rate": self.optimizer.param_groups[0]["lr"]})
         if name == "val":
             last_accuracy = metrics["val_clean_acc"]
-            for g in self.optimizer.param_groups:
-                g["lr"] = (
+            if self.adaptive_lr_mode == "linear":
+                new_lr = (
                     self.max_lr
                     * (last_accuracy - self.min_acc_threshold)
                     / (1 - self.min_acc_threshold)
                 )
-                g["lr"] = max(0, g["lr"])
+                new_lr = max(0, new_lr)
+            elif self.adaptive_lr_mode == "constant":
+                new_lr = self.max_lr if last_accuracy > self.min_acc_threshold else 0
+            for g in self.optimizer.param_groups:
+                g["lr"] = new_lr
 
     def on_training_end(self, metrics):
         pass
@@ -269,4 +274,3 @@ class CallbackLabelCorrectionStats(Callback):
             torch.save(
                 metrics[metric].detach().cpu(), os.path.join(log_dir, metric + ".pt")
             )
-

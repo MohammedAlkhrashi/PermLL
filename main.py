@@ -39,11 +39,13 @@ def str2bool(v):
         raise argparse.ArgumentTypeError("Boolean value expected.")
 
 
-def create_adaptive_perm_lr(optimizer, perm_lr, threshold, disable=False):
+def create_adaptive_perm_lr(
+    optimizer, perm_lr, threshold, adaptive_lr_mode, disable=False
+):
     if disable:
         print("Using identity learning rate scheduler for perm layer")
         return IdentityCallback()
-    return AdaptivePermLRScheduler(optimizer, threshold, perm_lr)
+    return AdaptivePermLRScheduler(optimizer, threshold, adaptive_lr_mode, perm_lr)
 
 
 def create_lr_scheduler(lr_scheduler, optimizer, loaders, config):
@@ -150,6 +152,9 @@ def get_config():
     parser.add_argument("--perm_momentum", type=float, default=0)
     parser.add_argument("--with_adaptive_perm_lr", type=str2bool, default=False)
     parser.add_argument("--adaptive_min_acc", type=float, default=0.1)
+    parser.add_argument(
+        "--adaptive_lr_mode", type=str, default="linear", choices=["linear", "constant"]
+    )
     parser.add_argument("--softmax_temp", type=float, default=1)
     args = parser.parse_args()
     print(args)
@@ -212,6 +217,7 @@ def main():
                 optimizer.permutation_optimizer,
                 perm_lr=config["permutation_lr"],
                 threshold=config["adaptive_min_acc"],
+                adaptive_lr_mode=config["adaptive_lr_mode"],
                 disable=not config["with_adaptive_perm_lr"],
             ),
         ]

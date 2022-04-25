@@ -1,4 +1,5 @@
 dataset/
+CIFAR-N/
 __pycache__
 wandb/
 .ipynb*/

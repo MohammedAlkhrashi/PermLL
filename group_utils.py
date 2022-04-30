@@ -19,8 +19,11 @@ class GroupLoss(nn.Module):
         # TODO: check stack method instead
         loss = 0
         for logit in logits:
-            loss += self.criterion(logit, target)
-        return loss
+            # all_losses works only for one network
+            all_losses = self.criterion(logit, target)
+            loss += all_losses.mean()
+            # loss += self.criterion(logit, target)
+        return loss, all_losses.sort(dim=0)[0]
 
 
 class GroupPicker:

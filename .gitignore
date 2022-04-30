@@ -1,7 +1,9 @@
 dataset/
+CIFAR-N/
 __pycache__
 wandb/
 .ipynb*/
 dict_to_args.py
 stats_logs/
 a.yml
+apply_noise.py

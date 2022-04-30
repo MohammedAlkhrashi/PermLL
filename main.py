@@ -14,8 +14,9 @@ from callbacks import (
     IdentityCallback,
     OneCycleLearningRateScheduler,
     StepLRLearningRateScheduler,
+    AdaptiveNetworkLRScheduler,
 )
-from dataset import cifar_dataloaders, create_train_transform
+from data_utils import create_dataloaders, create_train_transform
 from group_utils import GroupPicker, create_group_model, create_group_optimizer
 from model import GroupModel
 from train import TrainPermutation
@@ -55,17 +56,21 @@ def create_lr_scheduler(lr_scheduler, optimizer, loaders, config):
             max_lr=config["networks_lr"],
             epochs=config["epochs"],
             steps_per_epoch=len(loaders["train"]),
+            final_div_factor=config["final_div_factor"],
         )
     elif lr_scheduler == "cosine":
         return CosineAnnealingLRScheduler(
-            optimizer, steps=config["epochs"] * len(loaders["train"])
+            optimizer,
+            T_0=config["t_zero"]
+            * len(loaders["train"], T_mult=config["t_mult"] * len(loaders["train"])),
         )
     elif lr_scheduler == "step_lr":
         return StepLRLearningRateScheduler(
-            optimizer,
-            milestones=config["milestones"],
-            gamma=config["gamma"],
+            optimizer, milestones=config["milestones"], gamma=config["gamma"],
         )
+    elif lr_scheduler == 'adaptive':
+        return AdaptiveNetworkLRScheduler(optimizer, config["networks_lr"], config["batch_size"]//5, 0.8, factor=10)
+
     elif lr_scheduler == "default":
         print("Using identity learning rate scheduler for networks")
         return IdentityCallback()
@@ -100,7 +105,7 @@ def get_config():
         "--lr_scheduler",
         type=str,
         default="default",
-        choices=["default", "one_cycle", "cosine"],
+        choices=["default", "one_cycle", "cosine", "adaptive"],
     )
     parser.add_argument("--grad_clip", type=float, default=-1)
     parser.add_argument("--networks_optim", type=str, default="adam")
@@ -113,6 +118,7 @@ def get_config():
         choices=["AutoAugment", "default"],
     )
     parser.add_argument("--noise", type=float, default=0.3)
+    parser.add_argument("--noise_mode", type=str, default="sym")
     parser.add_argument(
         "--upperbound_exp", type=str2bool, default=False
     )  # do we need this hparam?
@@ -156,6 +162,10 @@ def get_config():
         "--adaptive_lr_mode", type=str, default="linear", choices=["linear", "constant"]
     )
     parser.add_argument("--softmax_temp", type=float, default=1)
+    parser.add_argument("--final_div_factor", type=float, default=1e4)
+    parser.add_argument("--t_zero", type=int, default=50)
+    parser.add_argument("--t_mult", type=int, default=1)
+
     args = parser.parse_args()
     print(args)
     return vars(args)
@@ -165,13 +175,13 @@ def main():
     config = get_config()
     wandb.init(project="test-project", entity="nnlp", config=config)
     train_transform = create_train_transform(config["augmentation"])
-    loaders = cifar_dataloaders(
-        batch_size=config["batch_size"],
+    loaders = create_dataloaders(
+        dataset_name=config["dataset"],
         noise=config["noise"],
+        noise_mode=config["noise_mode"],
         num_workers=config["num_workers"],
-        upperbound=config["upperbound_exp"],
+        batch_size=config["batch_size"],
         train_transform=train_transform,
-        cifar100=config["dataset"] == "cifar100",
     )
     group_picker = GroupPicker(
         networks_per_group=config["networks_per_group"],
@@ -230,7 +240,7 @@ def main():
             train_loader=loaders["train"],
             val_loader=loaders["val"],
             epochs=config["epochs"],
-            criterion=CrossEntropyLoss(label_smoothing=config["label_smoothing"]),
+            criterion=CrossEntropyLoss(label_smoothing=config["label_smoothing"], reduction="none"),
             gpu_num=config["gpu_num"],
             group_picker=group_picker,
             callbacks=callbacks,

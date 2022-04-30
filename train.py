@@ -51,7 +51,7 @@ class TrainPermutation:
             sample_index=batch["sample_index"],
             network_indices=next_group,
         )
-        loss = self.criterion(output, batch["noisy_label"])
+        loss, all_losses = self.criterion(output, batch["noisy_label"])
         if not val_step:
             loss.backward()
             if self.grad_clip != -1:
@@ -70,6 +70,7 @@ class TrainPermutation:
             "alpha_matrix": self.model.perm_model.alpha_matrix,
             "all_clean_labels": self.train_loader.dataset.original_labels,
             "all_noisy_labels": self.train_loader.dataset.noisy_labels,
+            "all_losses": all_losses,
         }
         return metrics
 

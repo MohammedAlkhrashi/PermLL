@@ -14,6 +14,7 @@ from callbacks import (
     IdentityCallback,
     OneCycleLearningRateScheduler,
     StepLRLearningRateScheduler,
+    AdaptiveNetworkLRScheduler,
 )
 from data_utils import create_dataloaders, create_train_transform
 from group_utils import GroupPicker, create_group_model, create_group_optimizer
@@ -65,6 +66,9 @@ def create_lr_scheduler(lr_scheduler, optimizer, loaders, config):
         return StepLRLearningRateScheduler(
             optimizer, milestones=config["milestones"], gamma=config["gamma"],
         )
+    elif lr_scheduler == 'adaptive':
+        return AdaptiveNetworkLRScheduler(optimizer, config["networks_lr"], config["batch_size"]//5, 0.8, factor=10)
+
     elif lr_scheduler == "default":
         print("Using identity learning rate scheduler for networks")
         return IdentityCallback()
@@ -99,7 +103,7 @@ def get_config():
         "--lr_scheduler",
         type=str,
         default="default",
-        choices=["default", "one_cycle", "cosine"],
+        choices=["default", "one_cycle", "cosine", "adaptive"],
     )
     parser.add_argument("--grad_clip", type=float, default=-1)
     parser.add_argument("--networks_optim", type=str, default="adam")
@@ -230,7 +234,7 @@ def main():
             train_loader=loaders["train"],
             val_loader=loaders["val"],
             epochs=config["epochs"],
-            criterion=CrossEntropyLoss(label_smoothing=config["label_smoothing"]),
+            criterion=CrossEntropyLoss(label_smoothing=config["label_smoothing"], reduction="none"),
             gpu_num=config["gpu_num"],
             group_picker=group_picker,
             callbacks=callbacks,

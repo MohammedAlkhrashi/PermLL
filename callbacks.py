@@ -161,7 +161,7 @@ class AdaptiveNetworkLRScheduler(Callback):
         self.factor = factor
         self.init_lr = init_lr
         self.beta = beta
-        self.memorization_metric = 0
+        self.memorization_metric = 1
 
     def on_step_end(self, metrics, name):
         if name == "train":

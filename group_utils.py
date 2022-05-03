@@ -1,7 +1,7 @@
 import random
 from typing import List
 
-import timm
+# import timm
 import torch.nn as nn
 from torch.optim import SGD, Adam
 
@@ -11,9 +11,10 @@ from PreResNet import PreActResNet18, PreActResNet34
 
 
 class GroupLoss(nn.Module):
-    def __init__(self, criterion: nn.Module):
+    def __init__(self, criterion: nn.Module, equalize_losses):
         super().__init__()
         self.criterion: nn.Module = criterion
+        self.equalize_losses = equalize_losses
 
     def forward(self, logits: List, target):
         # TODO: check stack method instead
@@ -21,6 +22,8 @@ class GroupLoss(nn.Module):
         for logit in logits:
             # all_losses works only for one network
             all_losses = self.criterion(logit, target)
+            if self.equalize_losses:
+                all_losses *= (1/all_losses * all_losses.mean())
             loss += all_losses.mean()
             # loss += self.criterion(logit, target)
         return loss, all_losses.sort(dim=0)[0]

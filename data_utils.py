@@ -101,7 +101,10 @@ def prepare_dataset(dataset_name, noise, noise_mode):
         dataset_items["val"]["images"] = valset.data
         dataset_items["val"]["clean_labels"] = torch.tensor(valset.targets)
         dataset_items["val"]["noisy_labels"] = apply_noise(
-            torch.tensor(valset.targets), noise=noise, noise_mode="sym"
+            torch.tensor(valset.targets),
+            noise=noise,
+            noise_mode="sym",
+            dataset_name=dataset_name,
         )
         dataset_items["val"]["transforms"] = transforms.Compose(
             [

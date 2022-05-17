@@ -1,5 +1,6 @@
 import random
 from typing import List
+import torch
 
 import timm
 import torch.nn as nn
@@ -17,7 +18,7 @@ class GroupLoss(nn.Module):
         self.criterion: nn.Module = criterion
         self.equalize_losses = equalize_losses
 
-    def forward(self, logits: List, target):
+    def forward(self, logits: List, target,perm_matrix):
         if isinstance(self.criterion, (MSELoss, L1Loss, KLDivLoss)):
             num_classes = logits[0].size(1)
             target = F.one_hot(target, num_classes=num_classes)
@@ -25,13 +26,16 @@ class GroupLoss(nn.Module):
             assert logits[0].shape == target.shape
 
         loss = 0
+        if perm_matrix is None:
+            return 0, 0
         for logit in logits:
-            # all_losses works only for one network
-            all_losses = self.criterion(logit, target)
-            if self.equalize_losses:
-                all_losses *= 1 / all_losses * all_losses.mean()
-            loss += all_losses.mean()
-        return loss, all_losses.sort(dim=0)[0]
+            permuted_target = torch.matmul(
+                perm_matrix, target.unsqueeze(-1)
+            ).squeeze(-1)
+            loss += self.criterion(logit, permuted_target)
+            # loss += -((permuted_target @ F.log_softmax(logit).T).mean())
+
+        return loss, 0
 
 
 class GroupPicker:

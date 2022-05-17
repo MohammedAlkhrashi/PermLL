@@ -46,13 +46,14 @@ class TrainPermutation:
         next_group: List[int] = self.group_picker.next_group(val_step)
 
         self.optimizer.zero_grad()
-        output, unpermuted_logits = self.model(
+        output, perm_matrix, unpermuted_logits = self.model(
             batch["image"],
             target=batch["noisy_label"],
             sample_index=batch["sample_index"],
             network_indices=next_group,
         )
-        loss, all_losses = self.criterion(output, batch["noisy_label"])
+
+        loss, all_losses = self.criterion(output, batch["noisy_label"], perm_matrix)
         if not val_step:
             loss.backward()
             if self.grad_clip != -1:

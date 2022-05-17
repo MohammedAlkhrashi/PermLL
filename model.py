@@ -68,21 +68,23 @@ class GroupModel(nn.Module):
             unpermuted_logits = torch.stack(all_unpermuted_logits)
             # unpermuted_logits = normalize(unpermuted_logits, dim=2)
             unpermuted_logits = unpermuted_logits.mean(0)
-            permuted_logits = self.perm_model(unpermuted_logits, target, sample_index)
+            permuted_logits, perm_matrix = self.perm_model(
+                unpermuted_logits, target, sample_index
+            )
             all_permuted_logits.append(permuted_logits)
-            return all_permuted_logits, [unpermuted_logits]
+            return all_permuted_logits, perm_matrix, [unpermuted_logits]
         else:
             for index in network_indices:
                 model = self.models[index]
                 logits = model(x)
                 logits = self.apply_pre_perm_op(logits)
-                permuted_logits = self.perm_model(
+                permuted_logits, perm_matrix= self.perm_model(
                     logits, target, sample_index, self.logits_softmax_mode
                 )
                 permuted_logits = self.apply_post_perm_op(permuted_logits)
                 all_permuted_logits.append(permuted_logits)
                 all_unpermuted_logits.append(logits)
-            return all_permuted_logits, all_unpermuted_logits
+            return all_permuted_logits, perm_matrix, all_unpermuted_logits
 
     def apply_pre_perm_op(self, logits):
         if self.logits_softmax_mode == "log_softmax":
@@ -138,13 +140,18 @@ class PermutationModel(nn.Module):
             return (
                 torch.log_softmax(logits, dim=1)
                 if logits_softmax_mode == "log_perm_softmax"
-                else logits
+                else logits, None
             )
         perm = self.all_perm[target]
         perm = perm.to(self.alpha_matrix.device)
         alpha = self.alpha_matrix[sample_index] / self.softmax_temp
 
-        if logits_softmax_mode == "log_perm_softmax":
+        if logits_softmax_mode == "perm_on_y":
+            permutation_matrices = (
+                self.softmax(alpha.unsqueeze(-1).unsqueeze(-1)) * perm
+            ).sum(1)
+            return logits,permutation_matrices
+        elif logits_softmax_mode == "log_perm_softmax":
             return log_perm_softmax_stable(perm, alpha, logits)
         else:
             return perm_logits(logits, perm, alpha)

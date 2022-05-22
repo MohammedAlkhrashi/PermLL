@@ -66,10 +66,18 @@ def create_lr_scheduler(lr_scheduler, optimizer, loaders, config):
         )
     elif lr_scheduler == "step_lr":
         return StepLRLearningRateScheduler(
-            optimizer, milestones=config["milestones"], gamma=config["gamma"],
+            optimizer,
+            milestones=config["milestones"],
+            gamma=config["gamma"],
         )
-    elif lr_scheduler == 'adaptive':
-        return AdaptiveNetworkLRScheduler(optimizer, config["networks_lr"], config["batch_size"]//5, 0.8, factor=10)
+    elif lr_scheduler == "adaptive":
+        return AdaptiveNetworkLRScheduler(
+            optimizer,
+            config["networks_lr"],
+            config["batch_size"] // 5,
+            0.8,
+            factor=100000,
+        )
 
     elif lr_scheduler == "default":
         print("Using identity learning rate scheduler for networks")
@@ -240,7 +248,9 @@ def main():
             train_loader=loaders["train"],
             val_loader=loaders["val"],
             epochs=config["epochs"],
-            criterion=CrossEntropyLoss(label_smoothing=config["label_smoothing"], reduction="none"),
+            criterion=CrossEntropyLoss(
+                label_smoothing=config["label_smoothing"], reduction="none"
+            ),
             gpu_num=config["gpu_num"],
             group_picker=group_picker,
             callbacks=callbacks,

@@ -154,6 +154,7 @@ class CallbackPermutationStats(Callback):
         wandb.log({"false_to_false": self.false_to_false})
         wandb.log({"expected_new_label_accuracy": self.expected_new_label_accuracy})
 
+
 class AdaptiveNetworkLRScheduler(Callback):
     def __init__(self, optimizer, init_lr, num_stat_samples, beta, factor=10):
         self.optimizer: torch.optim.Optimizer = optimizer
@@ -166,10 +167,17 @@ class AdaptiveNetworkLRScheduler(Callback):
     def on_step_end(self, metrics, name):
         if name == "train":
             all_losses = metrics["all_losses"]
-            small_losses = all_losses[:self.num_stat_samples//2]
-            large_losses = all_losses[-self.num_stat_samples//2:]
-            self.memorization_metric = self.beta*self.memorization_metric + (1-self.beta)*small_losses.mean()/large_losses.mean()
+            small_losses = all_losses[: self.num_stat_samples // 2]
+            large_losses = all_losses[-self.num_stat_samples // 2 :]
+            self.memorization_metric = (
+                self.beta * self.memorization_metric
+                + (1 - self.beta) * small_losses.mean() / large_losses.mean()
+            )
             lr = (self.factor * self.memorization_metric).clamp(max=1) * self.init_lr
+
+            if lr < 0.0001:
+                lr = 0
+
             for g in self.optimizer.param_groups:
                 g["lr"] = lr
             wandb.log({"learning_rate": self.optimizer.param_groups[0]["lr"]})
@@ -179,6 +187,7 @@ class AdaptiveNetworkLRScheduler(Callback):
 
     def on_training_end(self, metrics):
         pass
+
 
 class StepLRLearningRateScheduler(Callback):
     def __init__(self, optimizer, milestones: str, gamma, last_epoch=-1):

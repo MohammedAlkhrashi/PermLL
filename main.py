@@ -173,6 +173,7 @@ def get_config():
     parser.add_argument("--final_div_factor", type=float, default=1e4)
     parser.add_argument("--t_zero", type=int, default=50)
     parser.add_argument("--t_mult", type=int, default=1)
+    parser.add_argument("--equalize_losses", type=str2bool, default=False)
 
     args = parser.parse_args()
     print(args)
@@ -256,6 +257,7 @@ def main():
             callbacks=callbacks,
             grad_clip=config["grad_clip"],
             num_permutation_limit=config["num_permutation_limit"],
+            equalize_losses=config["equalize_losses"],
         ).start()
 
         new_label = get_new_labels(

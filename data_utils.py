@@ -33,11 +33,30 @@ def apply_sym_noise(labels: Tensor, noise: float):
     return labels
 
 
-def apply_noise(labels, noise, noise_mode):
+def apply_asym_noise(labels: Tensor, noise: float, num_classes):
+    class_noise_map = {i: (i + 1) % num_classes for i in range(num_classes)}
+    original = labels.clone()
+    labels = labels.clone()
+    classes = labels.unique()
+    labels_per_class = int(len(labels) / len(classes))
+    labels_to_change_per_class = int(labels_per_class * noise)
+    for cur_class in classes:
+        idxs_to_change = random.sample(
+            range(labels_per_class), k=labels_to_change_per_class
+        )
+        idxs_with_cur_class_label = torch.where(original == cur_class)[0]
+        labels[idxs_with_cur_class_label[idxs_to_change]] = class_noise_map[
+            int(cur_class)
+        ]
+    return labels
+
+
+def apply_noise(labels, noise, noise_mode, dataset_name):
     if noise_mode == "sym":
         return apply_sym_noise(labels, noise)
     elif noise_mode == "asym":
-        raise NotImplementedError
+        num_classes = 10 if dataset_name == "cifar10" else 100
+        return apply_asym_noise(labels, noise, num_classes=num_classes)
     else:
         cifar_10_human_noise = torch.load("./CIFAR-N/CIFAR-10_human.pt")
         cifar_100_human_noise = torch.load("./CIFAR-N/CIFAR-100_human.pt")
@@ -47,7 +66,7 @@ def apply_noise(labels, noise, noise_mode):
             return torch.tensor(cifar_100_human_noise[noise_mode])
 
 
-def prepare_dataset(dataset_name, noise,noise_mode):
+def prepare_dataset(dataset_name, noise, noise_mode):
 
     dataset_items = dict()
     dataset_items["train"] = dict()
@@ -73,13 +92,19 @@ def prepare_dataset(dataset_name, noise,noise_mode):
         dataset_items["train"]["images"] = trainset.data
         dataset_items["train"]["clean_labels"] = torch.tensor(trainset.targets)
         dataset_items["train"]["noisy_labels"] = apply_noise(
-            torch.tensor(trainset.targets), noise=noise, noise_mode=noise_mode
+            torch.tensor(trainset.targets),
+            noise=noise,
+            noise_mode=noise_mode,
+            dataset_name=dataset_name,
         )
 
         dataset_items["val"]["images"] = valset.data
         dataset_items["val"]["clean_labels"] = torch.tensor(valset.targets)
         dataset_items["val"]["noisy_labels"] = apply_noise(
-            torch.tensor(valset.targets), noise=noise, noise_mode="sym"
+            torch.tensor(valset.targets),
+            noise=noise,
+            noise_mode="sym",
+            dataset_name=dataset_name,
         )
         dataset_items["val"]["transforms"] = transforms.Compose(
             [
@@ -97,8 +122,10 @@ def prepare_dataset(dataset_name, noise,noise_mode):
     return dataset_items
 
 
-def create_dataloaders(dataset_name, batch_size, num_workers, noise, train_transform,noise_mode):
-    dataset_items = prepare_dataset(dataset_name, noise,noise_mode)
+def create_dataloaders(
+    dataset_name, batch_size, num_workers, noise, train_transform, noise_mode
+):
+    dataset_items = prepare_dataset(dataset_name, noise, noise_mode)
     dataset_items["train"][
         "transforms"
     ] = train_transform  # TODO: move to prepare_dataset

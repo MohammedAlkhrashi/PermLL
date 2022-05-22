@@ -21,12 +21,13 @@ class TrainPermutation:
         grad_clip,
         group_picker: GroupPicker,
         num_permutation_limit,
+        equalize_losses,
         callbacks: List[Callback] = [],
         gpu_num="0",
     ) -> None:
         self.model: GroupModel = model
         self.optimizer: GroupOptimizer = optimizer
-        self.criterion: nn.Module = GroupLoss(criterion)
+        self.criterion: nn.Module = GroupLoss(criterion, equalize_losses)
         self.epochs = epochs
         self.grad_clip = grad_clip
         self.num_permutation_limit = num_permutation_limit

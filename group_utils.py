@@ -33,7 +33,7 @@ class GroupLoss(nn.Module):
                 perm_matrix, target.unsqueeze(-1)
             ).squeeze(-1)
             loss += self.criterion(logit, permuted_target)
-            # loss += -((permuted_target @ F.log_softmax(logit).T).mean())
+            loss += torch.mean(torch.sum(-permuted_target * F.log_softmax(logit,-1), dim=-1))
 
         return loss, 0
 

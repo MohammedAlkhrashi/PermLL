@@ -12,6 +12,7 @@ class GroupModel(nn.Module):
         avg_before_perm,
         disable_perm=False,
         softmax_temp=1,
+        softmax_pre_perm=False,
     ) -> None:
         super().__init__()
         self.models = models
@@ -23,6 +24,7 @@ class GroupModel(nn.Module):
             disable_module=disable_perm,
             softmax_temp=softmax_temp,
         )
+        self.softmax_pre_perm = softmax_pre_perm
 
     def forward(self, x, target, sample_index, network_indices):
         all_permuted_logits = []
@@ -31,6 +33,8 @@ class GroupModel(nn.Module):
             for index in network_indices:
                 model = self.models[index]
                 logits = model(x)
+                if self.softmax_pre_perm:
+                    logits = torch.log_softmax(logits, dim=1)
                 all_unpermuted_logits.append(logits)
             unpermuted_logits = torch.stack(all_unpermuted_logits)
             # unpermuted_logits = normalize(unpermuted_logits, dim=2)
@@ -42,6 +46,8 @@ class GroupModel(nn.Module):
             for index in network_indices:
                 model = self.models[index]
                 logits = model(x)
+                if self.softmax_pre_perm:
+                    logits = torch.log_softmax(logits,dim=1)
                 permuted_logits = self.perm_model(logits, target, sample_index)
                 all_permuted_logits.append(permuted_logits)
                 all_unpermuted_logits.append(logits)

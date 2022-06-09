@@ -1,7 +1,7 @@
 import argparse
 
 import torch
-from torch.nn.modules import CrossEntropyLoss
+from torch.nn.modules import CrossEntropyLoss, NLLLoss
 
 import wandb
 from callbacks import (
@@ -174,7 +174,7 @@ def get_config():
     parser.add_argument("--t_zero", type=int, default=50)
     parser.add_argument("--t_mult", type=int, default=1)
     parser.add_argument("--equalize_losses", type=str2bool, default=False)
-
+    parser.add_argument("--softmax_pre_perm", type=str2bool, default=False)
     args = parser.parse_args()
     print(args)
     return vars(args)
@@ -211,6 +211,7 @@ def main():
             avg_before_perm=config["avg_before_perm"],
             disable_perm=config["disable_perm"],
             softmax_temp=config["softmax_temp"],
+            softmax_pre_perm=config["softmax_pre_perm"],
         )
 
         optimizer = create_group_optimizer(
@@ -243,15 +244,22 @@ def main():
         if config["reshuffle_groups"]:
             callbacks.append(CallbackGroupPickerReseter(group_picker))
 
+        criterion: torch.nn.Module = None
+        if config["softmax_pre_perm"]:
+            criterion = NLLLoss(reduction="none")
+            print("Using softmax before permutation, (NLLLoss Criterion)")
+        else:
+            criterion = CrossEntropyLoss(
+                label_smoothing=config["label_smoothing"], reduction="none"
+            )
+
         TrainPermutation(
             model=model,
             optimizer=optimizer,
             train_loader=loaders["train"],
             val_loader=loaders["val"],
             epochs=config["epochs"],
-            criterion=CrossEntropyLoss(
-                label_smoothing=config["label_smoothing"], reduction="none"
-            ),
+            criterion=criterion,
             gpu_num=config["gpu_num"],
             group_picker=group_picker,
             callbacks=callbacks,

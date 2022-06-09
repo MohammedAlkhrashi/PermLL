@@ -23,7 +23,7 @@ class GroupLoss(nn.Module):
             # all_losses works only for one network
             all_losses = self.criterion(logit, target)
             if self.equalize_losses:
-                all_losses *= (1/all_losses * all_losses.mean())
+                all_losses *= 1 / all_losses * all_losses.mean()
             loss += all_losses.mean()
             # loss += self.criterion(logit, target)
         return loss, all_losses.sort(dim=0)[0]
@@ -151,6 +151,7 @@ def create_group_model(
     model_name="resnet18",
     disable_perm=False,
     softmax_temp=1,
+    softmax_pre_perm=False,
 ):
     models = nn.ModuleList()
     for _ in range(num_of_networks):
@@ -164,6 +165,7 @@ def create_group_model(
         avg_before_perm,
         disable_perm,
         softmax_temp=softmax_temp,
+        softmax_pre_perm=softmax_pre_perm,
     )
     return group_model
 

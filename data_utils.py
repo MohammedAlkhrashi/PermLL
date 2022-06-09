@@ -126,9 +126,7 @@ def create_dataloaders(
     dataset_name, batch_size, num_workers, noise, train_transform, noise_mode
 ):
     dataset_items = prepare_dataset(dataset_name, noise, noise_mode)
-    dataset_items["train"][
-        "transforms"
-    ] = train_transform  # TODO: move to prepare_dataset
+    dataset_items["train"]["transforms"] = train_transform
     train_set = NoisyDataset(**dataset_items["train"])
     val_set = NoisyDataset(**dataset_items["val"])
 

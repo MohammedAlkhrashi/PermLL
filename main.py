@@ -20,6 +20,7 @@ from data_utils import create_dataloaders, create_train_transform
 from group_utils import GroupPicker, create_group_model, create_group_optimizer
 from model import GroupModel
 from train import TrainPermutation
+torch.autograd.set_detect_anomaly(True)
 
 
 def str2list(v):
@@ -174,7 +175,12 @@ def get_config():
     parser.add_argument("--t_zero", type=int, default=50)
     parser.add_argument("--t_mult", type=int, default=1)
     parser.add_argument("--equalize_losses", type=str2bool, default=False)
-    parser.add_argument("--softmax_pre_perm", type=str2bool, default=False)
+    parser.add_argument(
+        "--logits_softmax_mode",
+        type=str,
+        default="default",
+        choices=["default", "log_softmax", "softmax","log_perm_softmax"],
+    )
     args = parser.parse_args()
     print(args)
     return vars(args)
@@ -211,7 +217,7 @@ def main():
             avg_before_perm=config["avg_before_perm"],
             disable_perm=config["disable_perm"],
             softmax_temp=config["softmax_temp"],
-            softmax_pre_perm=config["softmax_pre_perm"],
+            logits_softmax_mode=config["logits_softmax_mode"],
         )
 
         optimizer = create_group_optimizer(
@@ -245,7 +251,7 @@ def main():
             callbacks.append(CallbackGroupPickerReseter(group_picker))
 
         criterion: torch.nn.Module = None
-        if config["softmax_pre_perm"]:
+        if "softmax" in config["logits_softmax_mode"]:
             criterion = NLLLoss(reduction="none")
             print("Using softmax before permutation, (NLLLoss Criterion)")
         else:

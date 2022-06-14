@@ -1,7 +1,7 @@
 import random
 from typing import List
 
-# import timm
+import timm
 import torch.nn as nn
 from torch.optim import SGD, Adam
 
@@ -151,7 +151,7 @@ def create_group_model(
     model_name="resnet18",
     disable_perm=False,
     softmax_temp=1,
-    softmax_pre_perm=False,
+    logits_softmax_mode=False,
 ):
     models = nn.ModuleList()
     for _ in range(num_of_networks):
@@ -165,7 +165,7 @@ def create_group_model(
         avg_before_perm,
         disable_perm,
         softmax_temp=softmax_temp,
-        softmax_pre_perm=softmax_pre_perm,
+        logits_softmax_mode=logits_softmax_mode,
     )
     return group_model
 

@@ -2,37 +2,45 @@ import torch
 import torch.nn as nn
 
 
-# def stable_softmax(tensor):
-#     pass
-def stable_log_softmax(tensor):
-    # t_max, _= torch.max(tensor,dim=1)
-    # t_max = t_max[:,None]
-    # exp = torch.exp(tensor - t_max)
-    # log_exp= torch.log(exp)
-    # log_sum_exp_bot = torch.logsumexp(tensor,dim=1)[:,None]
-
-    # return (-log_sum_exp_bot + t_max) + log_exp
-    t_max, _ = torch.max(tensor, dim=1)
-    t_max = t_max[:, None]
-    exp = tensor - t_max
-    log_sum_exp_bot = torch.logsumexp(exp, dim=1)[:, None]
-    return exp - log_sum_exp_bot
-
 def log_perm_softmax(P, a, f_x):
-    M = torch.max(a+f_x).unsqueeze(-1)
-    M = 0
+    # M = torch.max(a+f_x).unsqueeze(-1)
+    # M = torch.max(a).unsqueeze(-1)
+    # M = torch.min(f_x).unsqueeze(-1)
+    # M = 0
+    M = torch.max(f_x).unsqueeze(-1)
+
     log_sum_exp_alphas = torch.logsumexp(a, dim=1).unsqueeze(-1)
     log_sum_exp_f_x = torch.logsumexp(f_x, dim=1).unsqueeze(-1)
-    rep_alphas = a.repeat_interleave(a.size(1)**2).reshape(P.shape)
-    rep_alphas = rep_alphas + f_x.reshape(-1,1,1,a.size(1))
+    rep_alphas = a.repeat_interleave(a.size(1) ** 2).reshape(P.shape)
+    rep_alphas = rep_alphas + f_x.reshape(-1, 1, 1, a.size(1))
     normalized = rep_alphas - M
+    print("norm: ", normalized)
     exp_normalized = torch.exp(normalized)
+
+    print("exp: ", exp_normalized)
     scaled_perms = exp_normalized * P
     sum_perm = torch.sum(scaled_perms, dim=1)
-    print("sum perm: ",sum_perm)
-    perm_x_ones = torch.sum(sum_perm,dim=-1)
-    return torch.log(perm_x_ones) + M - (log_sum_exp_alphas + log_sum_exp_f_x)
-    
+    perm_x_ones = torch.sum(sum_perm, dim=-1)
+    print("perm_x_ones: ", perm_x_ones)
+    eps = 1e-9
+    log_perm_x_ones = torch.log(perm_x_ones + eps)
+    print("log_perm_x_ones: ", log_perm_x_ones)
+    return log_perm_x_ones + M - (log_sum_exp_alphas + log_sum_exp_f_x)
+
+
+def log_perm_softmax_stable(P, alphas, logits):
+    log_sum_exp_alphas = torch.logsumexp(alphas, dim=1).unsqueeze(-1)
+    log_sum_exp_f_x = torch.logsumexp(logits, dim=1).unsqueeze(-1)
+
+    alphas_expanded = alphas.repeat_interleave(alphas.size(1) ** 2).reshape(P.shape)
+    exponents = alphas_expanded + logits.reshape(-1, 1, 1, alphas.size(1))
+    masked_exponents = exponents * P
+    neg_infs = torch.full(masked_exponents.shape, -torch.inf)
+    final_exponents = torch.where(masked_exponents != 0, masked_exponents, neg_infs)
+    log_sum_exp_over_all_rows = torch.logsumexp(final_exponents, dim=(1, 3))
+    return log_sum_exp_over_all_rows - (log_sum_exp_alphas + log_sum_exp_f_x)
+
+
 class GroupModel(nn.Module):
     def __init__(
         self,
@@ -78,46 +86,32 @@ class GroupModel(nn.Module):
                 model = self.models[index]
                 logits = model(x)
                 logits = self.apply_pre_perm_op(logits)
-                permuted_logits = self.perm_model(logits, target, sample_index, self.logits_softmax_mode)
+                permuted_logits = self.perm_model(
+                    logits, target, sample_index, self.logits_softmax_mode
+                )
                 permuted_logits = self.apply_post_perm_op(permuted_logits)
                 all_permuted_logits.append(permuted_logits)
                 all_unpermuted_logits.append(logits)
             return all_permuted_logits, all_unpermuted_logits
 
     def apply_pre_perm_op(self, logits):
-        print('PRE: logits before:')
-        print(logits)
         if self.logits_softmax_mode == "log_softmax":
-            print("log_softmax_pre")
-            logits =  torch.log_softmax(logits, dim=1)
+            logits = torch.log_softmax(logits, dim=1)
         elif self.logits_softmax_mode == "softmax":
-            print("softmax_pre")
             logits = torch.softmax(logits, dim=1)
-        elif self.logits_softmax_mode == "stable_softmax":
-            print("stable_softmax_pre")
-            logits = stable_log_softmax(logits)
         else:
-            print("default_before")
-
-        print('\nPRE: logits after:')
-        print(logits)
+            pass
         return logits
 
     def apply_post_perm_op(self, permuted_logits):
-        print('POST: logits before:')
-        print(permuted_logits)
         if self.logits_softmax_mode == "log_softmax":
-            print("log_softmax_post")
+            pass
         elif self.logits_softmax_mode == "softmax":
-            print("softmax_after")
-            permuted_logits =  torch.log(permuted_logits)
+            permuted_logits = torch.log(permuted_logits)
         elif self.logits_softmax_mode == "stable_softmax":
-            print("stable_softmax_post")
             pass
         else:
-            print("default_after")
-        print('\nPOST: logits after:')
-        print(permuted_logits)
+            pass
         return permuted_logits
 
     def __len__(self):
@@ -159,7 +153,7 @@ class PermutationModel(nn.Module):
         perm = perm.to(self.alpha_matrix.device)
         alpha = self.alpha_matrix[sample_index] / self.softmax_temp
         if logits_softmax_mode == "log_perm_softmax":
-            return log_perm_softmax(perm,alpha,logits)
+            return log_perm_softmax_stable(perm, alpha, logits)
         else:
             permutation_matrices = (
                 self.softmax(alpha.unsqueeze(-1).unsqueeze(-1)) * perm

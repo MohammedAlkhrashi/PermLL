@@ -2,33 +2,6 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-
-def log_perm_softmax(P, a, f_x):
-    # M = torch.max(a+f_x).unsqueeze(-1)
-    # M = torch.max(a).unsqueeze(-1)
-    # M = torch.min(f_x).unsqueeze(-1)
-    # M = 0
-    M = torch.max(f_x).unsqueeze(-1)
-
-    log_sum_exp_alphas = torch.logsumexp(a, dim=1).unsqueeze(-1)
-    log_sum_exp_f_x = torch.logsumexp(f_x, dim=1).unsqueeze(-1)
-    rep_alphas = a.repeat_interleave(a.size(1) ** 2).reshape(P.shape)
-    rep_alphas = rep_alphas + f_x.reshape(-1, 1, 1, a.size(1))
-    normalized = rep_alphas - M
-    print("norm: ", normalized)
-    exp_normalized = torch.exp(normalized)
-
-    print("exp: ", exp_normalized)
-    scaled_perms = exp_normalized * P
-    sum_perm = torch.sum(scaled_perms, dim=1)
-    perm_x_ones = torch.sum(sum_perm, dim=-1)
-    print("perm_x_ones: ", perm_x_ones)
-    eps = 1e-9
-    log_perm_x_ones = torch.log(perm_x_ones + eps)
-    print("log_perm_x_ones: ", log_perm_x_ones)
-    return log_perm_x_ones + M - (log_sum_exp_alphas + log_sum_exp_f_x)
-
-
 def log_perm_softmax_stable(P, alphas, logits):
     log_sum_exp_alphas = torch.logsumexp(alphas, dim=1).unsqueeze(-1)
     log_sum_exp_f_x = torch.logsumexp(logits, dim=1).unsqueeze(-1)
@@ -36,9 +9,11 @@ def log_perm_softmax_stable(P, alphas, logits):
     alphas_expanded = alphas.repeat_interleave(alphas.size(1) ** 2).reshape(P.shape)
     exponents = alphas_expanded + logits.reshape(-1, 1, 1, alphas.size(1))
     masked_exponents = exponents * P
+
     neg_infs = torch.full(masked_exponents.shape, -np.inf, device=logits.device)
     final_exponents = torch.where(masked_exponents != 0, masked_exponents, neg_infs)
     log_sum_exp_over_all_rows = torch.logsumexp(final_exponents, dim=(1, 3))
+
     return log_sum_exp_over_all_rows - (log_sum_exp_alphas + log_sum_exp_f_x)
 
 
@@ -108,8 +83,6 @@ class GroupModel(nn.Module):
         if self.logits_softmax_mode == "log_softmax":
             pass
         elif self.logits_softmax_mode == "softmax":
-            permuted_logits = torch.log(permuted_logits)
-        elif self.logits_softmax_mode == "stable_softmax":
             pass
         else:
             pass

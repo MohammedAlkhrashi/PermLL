@@ -1,7 +1,7 @@
 import argparse
 
 import torch
-from torch.nn.modules import CrossEntropyLoss, NLLLoss
+from torch.nn.modules import CrossEntropyLoss, NLLLoss, MSELoss, L1Loss, KLDivLoss
 
 import wandb
 from callbacks import (
@@ -20,6 +20,7 @@ from data_utils import create_dataloaders, create_train_transform
 from group_utils import GroupPicker, create_group_model, create_group_optimizer
 from model import GroupModel
 from train import TrainPermutation
+
 torch.autograd.set_detect_anomaly(True)
 
 
@@ -39,6 +40,33 @@ def str2bool(v):
         return False
     else:
         raise argparse.ArgumentTypeError("Boolean value expected.")
+
+
+def create_loss_func(loss_func, logits_softmax_mode, config, reduction="none"):
+    
+    log_space_prediction = "log" in logits_softmax_mode
+    prop_space_prediction = "softmax" == logits_softmax_mode
+    if loss_func == "mse":
+        print("Using MSE loss function")
+        assert prop_space_prediction
+        return MSELoss(reduction=reduction)
+    elif loss_func == "mae":
+        print("Using MAE loss function")
+        assert prop_space_prediction
+        return L1Loss(reduction=reduction)
+    elif loss_func == "kl":
+        print("Using KL loss function")
+        assert log_space_prediction
+        return KLDivLoss(reduction="batchmean")
+    elif loss_func == "ce":
+        print("Using CE loss function")
+        if log_space_prediction:
+            print("Using softmax before permutation, (NLLLoss Criterion)")
+            return NLLLoss(reduction=reduction)
+        else:
+            return CrossEntropyLoss(
+                label_smoothing=config["label_smoothing"], reduction=reduction
+            )
 
 
 def create_adaptive_perm_lr(
@@ -179,8 +207,15 @@ def get_config():
         "--logits_softmax_mode",
         type=str,
         default="default",
-        choices=["default", "log_softmax", "softmax","log_perm_softmax"],
+        choices=["default", "log_softmax", "softmax", "log_perm_softmax"],
     )
+    parser.add_argument(
+        "--loss_func",
+        type=str,
+        default="ce",
+        choices=["ce", "mse", "mae", "kl"],
+    )
+
     args = parser.parse_args()
     print(args)
     return vars(args)
@@ -250,14 +285,9 @@ def main():
         if config["reshuffle_groups"]:
             callbacks.append(CallbackGroupPickerReseter(group_picker))
 
-        criterion: torch.nn.Module = None
-        if "softmax" in config["logits_softmax_mode"]:
-            criterion = NLLLoss(reduction="none")
-            print("Using softmax before permutation, (NLLLoss Criterion)")
-        else:
-            criterion = CrossEntropyLoss(
-                label_smoothing=config["label_smoothing"], reduction="none"
-            )
+        criterion: torch.nn.Module = create_loss_func(
+            config["loss_func"], config["logits_softmax_mode"], config
+        )
 
         TrainPermutation(
             model=model,

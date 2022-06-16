@@ -3,8 +3,9 @@ from typing import List
 
 import timm
 import torch.nn as nn
+from torch.nn import KLDivLoss, MSELoss, L1Loss
 from torch.optim import SGD, Adam
-
+import torch.nn.functional as F
 from model import GroupModel
 from resnet import ResNet18, ResNet34
 from PreResNet import PreActResNet18, PreActResNet34
@@ -17,7 +18,14 @@ class GroupLoss(nn.Module):
         self.equalize_losses = equalize_losses
 
     def forward(self, logits: List, target):
-        # TODO: check stack method instead
+        if isinstance(self.criterion, (MSELoss, L1Loss, KLDivLoss)):
+            num_classes = logits[0].size(1)
+            target = F.one_hot(
+                target, num_classes=num_classes
+            )
+            target = target.float()
+            assert logits[0].shape == target.shape
+
         loss = 0
         for logit in logits:
             # all_losses works only for one network

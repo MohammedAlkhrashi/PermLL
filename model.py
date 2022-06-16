@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import numpy as np
 
 
 def log_perm_softmax(P, a, f_x):
@@ -35,7 +36,7 @@ def log_perm_softmax_stable(P, alphas, logits):
     alphas_expanded = alphas.repeat_interleave(alphas.size(1) ** 2).reshape(P.shape)
     exponents = alphas_expanded + logits.reshape(-1, 1, 1, alphas.size(1))
     masked_exponents = exponents * P
-    neg_infs = torch.full(masked_exponents.shape, -torch.inf)
+    neg_infs = torch.full(masked_exponents.shape, -np.inf, device=logits.device)
     final_exponents = torch.where(masked_exponents != 0, masked_exponents, neg_infs)
     log_sum_exp_over_all_rows = torch.logsumexp(final_exponents, dim=(1, 3))
     return log_sum_exp_over_all_rows - (log_sum_exp_alphas + log_sum_exp_f_x)

@@ -43,7 +43,7 @@ def str2bool(v):
 
 
 def create_loss_func(loss_func, logits_softmax_mode, config, reduction="none"):
-    
+
     log_space_prediction = "log" in logits_softmax_mode
     prop_space_prediction = "softmax" == logits_softmax_mode
     if loss_func == "mse":

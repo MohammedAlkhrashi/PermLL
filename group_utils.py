@@ -20,9 +20,7 @@ class GroupLoss(nn.Module):
     def forward(self, logits: List, target):
         if isinstance(self.criterion, (MSELoss, L1Loss, KLDivLoss)):
             num_classes = logits[0].size(1)
-            target = F.one_hot(
-                target, num_classes=num_classes
-            )
+            target = F.one_hot(target, num_classes=num_classes)
             target = target.float()
             assert logits[0].shape == target.shape
 
@@ -161,8 +159,17 @@ def create_group_model(
     softmax_temp=1,
     logits_softmax_mode=False,
 ):
+
     models = nn.ModuleList()
-    for _ in range(num_of_networks):
+    model_names_list = model_name.split(",")
+    repeat_factor = num_of_networks / len(model_names_list)
+    if not repeat_factor.is_integer():
+        raise ValueError(
+            "num_of_networks is not divisiable by the length of the: specific model names entered"
+        )
+    model_names_list = model_names_list * int(repeat_factor)
+    print(f"Models in GroupModel: {model_names_list}")
+    for model_name in model_names_list:
         model = model_from_name(model_name, num_classes)
         models.append(model)
     group_model = GroupModel(

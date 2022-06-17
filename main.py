@@ -41,7 +41,6 @@ def str2bool(v):
     else:
         raise argparse.ArgumentTypeError("Boolean value expected.")
 
-
 def create_loss_func(loss_func, logits_softmax_mode, config, reduction="none"):
 
     log_space_prediction = "log" in logits_softmax_mode
@@ -225,7 +224,7 @@ def main():
     config = get_config()
     wandb.init(project="test-project", entity="nnlp", config=config)
     train_transform = create_train_transform(config["augmentation"])
-    loaders = create_dataloaders(
+    loaders, num_classes = create_dataloaders(
         dataset_name=config["dataset"],
         noise=config["noise"],
         noise_mode=config["noise_mode"],
@@ -244,7 +243,7 @@ def main():
     for _ in range(config["num_generations"]):
         model: GroupModel = create_group_model(
             config["networks_per_group"] * config["num_groups"],
-            num_classes=10 if config["dataset"] == "cifar10" else 100,
+            num_classes=num_classes,
             pretrained=config["pretrained"],
             dataset_targets=loaders["train"].dataset.noisy_labels,
             perm_init_value=config["perm_init_value"],

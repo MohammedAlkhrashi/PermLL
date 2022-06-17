@@ -73,6 +73,7 @@ def prepare_dataset(dataset_name, noise, noise_mode):
     dataset_items["val"] = dict()
     dataset_items["test"] = dict()
     if dataset_name == "cifar10":
+        dataset_items["num_classes"] = 10
         data_folder = "./dataset"
         trainset = torchvision.datasets.CIFAR10(
             root=data_folder, train=True, download=True
@@ -81,6 +82,7 @@ def prepare_dataset(dataset_name, noise, noise_mode):
             root=data_folder, train=False, download=True
         )
     if dataset_name == "cifar100":
+        dataset_items["num_classes"] = 100
         data_folder = "./dataset"
         trainset = torchvision.datasets.CIFAR100(
             root=data_folder, train=True, download=True
@@ -136,10 +138,11 @@ def create_dataloaders(
     val_loader = DataLoader(
         val_set, batch_size=batch_size, shuffle=False, num_workers=num_workers
     )
-    return {
+    loaders = {
         "train": train_loader,
         "val": val_loader,
     }
+    return loaders, dataset_items["num_classes"]
 
 
 def create_train_transform(augmentation, dataset="cifar10"):

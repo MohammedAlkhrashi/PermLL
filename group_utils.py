@@ -169,6 +169,7 @@ def create_group_model(
         )
     model_names_list = model_names_list * int(repeat_factor)
     print(f"Models in GroupModel: {model_names_list}")
+    print(f'Number of classes: {num_classes}')
     for model_name in model_names_list:
         model = model_from_name(model_name, num_classes)
         models.append(model)

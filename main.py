@@ -21,7 +21,7 @@ from group_utils import GroupPicker, create_group_model, create_group_optimizer
 from model import GroupModel
 from train import TrainPermutation
 
-torch.autograd.set_detect_anomaly(True)
+# torch.autograd.set_detect_anomaly(True)
 
 
 def str2list(v):
@@ -40,6 +40,7 @@ def str2bool(v):
         return False
     else:
         raise argparse.ArgumentTypeError("Boolean value expected.")
+
 
 def create_loss_func(loss_func, logits_softmax_mode, config, reduction="none"):
 

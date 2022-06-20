@@ -15,7 +15,20 @@ def log_perm_softmax_stable(P, alphas, logits):
     final_exponents = torch.where(masked_exponents != 0, masked_exponents, neg_infs)
     log_sum_exp_over_all_rows = torch.logsumexp(final_exponents, dim=(1, 3))
 
-    return log_sum_exp_over_all_rows - (log_sum_exp_alphas + log_sum_exp_f_x)
+    log_permuted_softmax_logits = log_sum_exp_over_all_rows - (
+        log_sum_exp_alphas + log_sum_exp_f_x
+    )  # =log(permutation(softmax(logits)))
+    return log_permuted_softmax_logits
+
+
+def perm_logits(logits, perm, alpha):
+    permutation_matrices = (
+        torch.softmax(alpha.unsqueeze(-1).unsqueeze(-1), dim=1) * perm
+    ).sum(1)
+    permuted_logits = torch.matmul(permutation_matrices, logits.unsqueeze(-1)).squeeze(
+        -1
+    )
+    return permuted_logits
 
 
 class GroupModel(nn.Module):
@@ -127,20 +140,14 @@ class PermutationModel(nn.Module):
                 if logits_softmax_mode == "log_perm_softmax"
                 else logits
             )
-
         perm = self.all_perm[target]
         perm = perm.to(self.alpha_matrix.device)
         alpha = self.alpha_matrix[sample_index] / self.softmax_temp
+
         if logits_softmax_mode == "log_perm_softmax":
             return log_perm_softmax_stable(perm, alpha, logits)
         else:
-            permutation_matrices = (
-                self.softmax(alpha.unsqueeze(-1).unsqueeze(-1)) * perm
-            ).sum(1)
-            permuted_logits = torch.matmul(
-                permutation_matrices, logits.unsqueeze(-1)
-            ).squeeze(-1)
-            return permuted_logits
+            return perm_logits(logits, perm, alpha)
 
     def create_alpha_matrix(self, targets):
         alpha_matrix = nn.Parameter(

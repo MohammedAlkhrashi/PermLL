@@ -31,7 +31,6 @@ class GroupLoss(nn.Module):
             if self.equalize_losses:
                 all_losses *= 1 / all_losses * all_losses.mean()
             loss += all_losses.mean()
-            # loss += self.criterion(logit, target)
         return loss, all_losses.sort(dim=0)[0]
 
 

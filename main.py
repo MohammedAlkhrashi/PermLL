@@ -156,9 +156,6 @@ def get_config():
     )
     parser.add_argument("--noise", type=float, default=0.3)
     parser.add_argument("--noise_mode", type=str, default="sym")
-    parser.add_argument(
-        "--upperbound_exp", type=str2bool, default=False
-    )  # do we need this hparam?
     parser.add_argument("--networks_per_group", type=int, default=1)
     parser.add_argument("--num_groups", type=int, default=1)
     parser.add_argument("--change_every", type=int, default=1)

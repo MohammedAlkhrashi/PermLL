@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 
+
 def log_perm_softmax_stable(P, alphas, logits):
     log_sum_exp_alphas = torch.logsumexp(alphas, dim=1).unsqueeze(-1)
     log_sum_exp_f_x = torch.logsumexp(logits, dim=1).unsqueeze(-1)
@@ -121,7 +122,11 @@ class PermutationModel(nn.Module):
 
     def forward(self, logits, target, sample_index, logits_softmax_mode=None):
         if not self.training or self.disable_module:
-            return logits
+            return (
+                torch.log_softmax(logits, dim=1)
+                if logits_softmax_mode == "log_perm_softmax"
+                else logits
+            )
 
         perm = self.all_perm[target]
         perm = perm.to(self.alpha_matrix.device)

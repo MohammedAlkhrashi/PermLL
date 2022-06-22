@@ -19,11 +19,10 @@ class GroupLoss(nn.Module):
         self.equalize_losses = equalize_losses
 
     def forward(self, logits: List, target,perm_matrix):
-        if isinstance(self.criterion, (MSELoss, L1Loss, KLDivLoss)):
-            num_classes = logits[0].size(1)
-            target = F.one_hot(target, num_classes=num_classes)
-            target = target.float()
-            assert logits[0].shape == target.shape
+        num_classes = logits[0].size(1)
+        target = F.one_hot(target, num_classes=num_classes)
+        target = target.float()
+        assert logits[0].shape == target.shape
 
         loss = 0
         if perm_matrix is None:

@@ -3,34 +3,6 @@ import torch.nn as nn
 import numpy as np
 
 
-def log_perm_softmax_stable(P, alphas, logits):
-    log_sum_exp_alphas = torch.logsumexp(alphas, dim=1).unsqueeze(-1)
-    log_sum_exp_f_x = torch.logsumexp(logits, dim=1).unsqueeze(-1)
-
-    alphas_expanded = alphas.repeat_interleave(alphas.size(1) ** 2).reshape(P.shape)
-    exponents = alphas_expanded + logits.reshape(-1, 1, 1, alphas.size(1))
-    masked_exponents = exponents * P
-
-    neg_infs = torch.full(masked_exponents.shape, -np.inf, device=logits.device)
-    final_exponents = torch.where(masked_exponents != 0, masked_exponents, neg_infs)
-    log_sum_exp_over_all_rows = torch.logsumexp(final_exponents, dim=(1, 3))
-
-    log_permuted_softmax_logits = log_sum_exp_over_all_rows - (
-        log_sum_exp_alphas + log_sum_exp_f_x
-    )  # =log(permutation(softmax(logits)))
-    return log_permuted_softmax_logits
-
-
-def perm_logits(logits, perm, alpha):
-    permutation_matrices = (
-        torch.softmax(alpha.unsqueeze(-1).unsqueeze(-1), dim=1) * perm
-    ).sum(1)
-    permuted_logits = torch.matmul(permutation_matrices, logits.unsqueeze(-1)).squeeze(
-        -1
-    )
-    return permuted_logits
-
-
 class GroupModel(nn.Module):
     def __init__(
         self,
@@ -78,7 +50,7 @@ class GroupModel(nn.Module):
                 model = self.models[index]
                 logits = model(x)
                 logits = self.apply_pre_perm_op(logits)
-                permuted_logits, perm_matrix= self.perm_model(
+                permuted_logits, perm_matrix = self.perm_model(
                     logits, target, sample_index, self.logits_softmax_mode
                 )
                 permuted_logits = self.apply_post_perm_op(permuted_logits)
@@ -96,12 +68,6 @@ class GroupModel(nn.Module):
         return logits
 
     def apply_post_perm_op(self, permuted_logits):
-        if self.logits_softmax_mode == "log_softmax":
-            pass
-        elif self.logits_softmax_mode == "softmax":
-            pass
-        else:
-            pass
         return permuted_logits
 
     def __len__(self):
@@ -138,23 +104,17 @@ class PermutationModel(nn.Module):
     def forward(self, logits, target, sample_index, logits_softmax_mode=None):
         if not self.training or self.disable_module:
             return (
-                torch.log_softmax(logits, dim=1)
+                (torch.log_softmax(logits, dim=1), None)
                 if logits_softmax_mode == "log_perm_softmax"
-                else logits, None
+                else (logits, None)
             )
         perm = self.all_perm[target]
         perm = perm.to(self.alpha_matrix.device)
         alpha = self.alpha_matrix[sample_index] / self.softmax_temp
-
-        if logits_softmax_mode == "perm_on_y":
-            permutation_matrices = (
-                self.softmax(alpha.unsqueeze(-1).unsqueeze(-1)) * perm
-            ).sum(1)
-            return logits,permutation_matrices
-        elif logits_softmax_mode == "log_perm_softmax":
-            return log_perm_softmax_stable(perm, alpha, logits)
-        else:
-            return perm_logits(logits, perm, alpha)
+        permutation_matrices = (
+            self.softmax(alpha.unsqueeze(-1).unsqueeze(-1)) * perm
+        ).sum(1)
+        return logits, permutation_matrices
 
     def create_alpha_matrix(self, targets):
         alpha_matrix = nn.Parameter(

@@ -86,7 +86,11 @@ class GroupModel(nn.Module):
             permuted_logits = self.permute(logits, target, sample_index)
             all_unpermuted_logits.append(logits)
             all_permuted_logits.append(permuted_logits)
-        return all_permuted_logits, all_unpermuted_logits
+
+        avg_logits = torch.stack(all_unpermuted_logits).mean(0)
+        avg_logits_permuted = self.permute(avg_logits, target, sample_index)
+
+        return all_permuted_logits, all_unpermuted_logits, [avg_logits_permuted]
 
     def permute(self, logits, target, sample_index):
         logits = self.apply_pre_perm_op(logits)

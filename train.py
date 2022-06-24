@@ -41,12 +41,16 @@ class TrainPermutation:
         self.group_picker = group_picker
         self.callbacks: List[Callback] = callbacks
 
+    torch.autograd.anomaly_mode.set_detect_anomaly(True)
+
     def step(self, batch, epoch, val_step=False):
         batch = {key: value.to(self.device) for key, value in batch.items()}
         next_group: List[int] = self.group_picker.next_group(val_step)
 
-        self.optimizer.zero_grad()
-        output, unpermuted_logits = self.model(
+        # theta step (avg_after)
+        self.optimizer.network_optimizer.zero_grad()
+        self.optimizer.permutation_optimizer.zero_grad()
+        output, unpermuted_logits, avg_logits_permuted = self.model(
             batch["image"],
             target=batch["noisy_label"],
             sample_index=batch["sample_index"],
@@ -54,9 +58,28 @@ class TrainPermutation:
         )
         loss, all_losses = self.criterion(output, batch["noisy_label"])
         if not val_step:
-            loss.backward()
-            self.perform_grad_clip()
-            self.optimizer.step()
+            self.model.models.requires_grad_(True)
+            self.model.perm_model.requires_grad_(False)
+            loss.backward(retain_graph=True)
+        if not val_step:
+            # perm step (after_before)
+            loss2, _ = self.criterion(avg_logits_permuted, batch["noisy_label"])
+            self.model.models.requires_grad_(False)
+            self.model.perm_model.requires_grad_(True)
+            loss2.backward()
+            # before_perm_0 = list(self.model.perm_model.parameters())[0].clone().detach()
+            # before_theta_0 = list(self.model.models.parameters())[0].clone().detach()
+            self.optimizer.network_optimizer.step()
+            # after_perm_1= list(self.model.perm_model.parameters())[0].clone().detach()
+            # after_theta_1 = list(self.model.models.parameters())[0].clone().detach()
+            # assert torch.allclose(before_perm_0, after_perm_1)
+            # assert not torch.allclose(before_theta_0, after_theta_1)
+            self.optimizer.permutation_optimizer.step()
+            # after_perm_2= list(self.model.perm_model.parameters())[0].clone().detach()
+            # after_theta_2 = list(self.model.models.parameters())[0].clone().detach()
+            # assert not torch.allclose(after_perm_1, after_perm_2)
+            # assert torch.allclose(after_theta_1, after_theta_2)
+
 
         metrics = {
             "batch": batch,
@@ -75,9 +98,7 @@ class TrainPermutation:
         if self.grad_clip != -1:
             print("WARNING CLIPPING")
             # Grad clipping currently only works for one network.
-            nn.utils.clip_grad_value_(
-                    self.model.models[0].parameters(), self.grad_clip
-                )
+            nn.utils.clip_grad_value_(self.model.models[0].parameters(), self.grad_clip)
 
     def one_epoch(self, epoch, val_epoch=False):
         loader = self.val_loader if val_epoch else self.train_loader

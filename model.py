@@ -56,33 +56,45 @@ class GroupModel(nn.Module):
         self.logits_softmax_mode = logits_softmax_mode
 
     def forward(self, x, target, sample_index, network_indices):
+        if self.avg_before_perm:
+            return self.forward_averge_before_perm(
+                x, target, sample_index, network_indices
+            )
+        else:
+            return self.forward_average_after_perm(
+                x, target, sample_index, network_indices
+            )
+
+    def forward_averge_before_perm(self, x, target, sample_index, network_indices):
+        all_unpermuted_logits = []
+        for index in network_indices:
+            model = self.models[index]
+            logits = model(x)
+            all_unpermuted_logits.append(logits)
+
+        unpermuted_logits = torch.stack(all_unpermuted_logits)
+        unpermuted_logits = unpermuted_logits.mean(0)
+        permuted_logits = self.permute(unpermuted_logits, target, sample_index)
+        return [permuted_logits], [unpermuted_logits]
+
+    def forward_average_after_perm(self, x, target, sample_index, network_indices):
         all_permuted_logits = []
         all_unpermuted_logits = []
-        if self.avg_before_perm:
-            for index in network_indices:
-                model = self.models[index]
-                logits = model(x)
-                if self.logits_softmax_mode:
-                    logits = torch.log_softmax(logits, dim=1)
-                all_unpermuted_logits.append(logits)
-            unpermuted_logits = torch.stack(all_unpermuted_logits)
-            # unpermuted_logits = normalize(unpermuted_logits, dim=2)
-            unpermuted_logits = unpermuted_logits.mean(0)
-            permuted_logits = self.perm_model(unpermuted_logits, target, sample_index)
+        for index in network_indices:
+            model = self.models[index]
+            logits = model(x)
+            permuted_logits = self.permute(logits, target, sample_index)
+            all_unpermuted_logits.append(logits)
             all_permuted_logits.append(permuted_logits)
-            return all_permuted_logits, [unpermuted_logits]
-        else:
-            for index in network_indices:
-                model = self.models[index]
-                logits = model(x)
-                logits = self.apply_pre_perm_op(logits)
-                permuted_logits = self.perm_model(
-                    logits, target, sample_index, self.logits_softmax_mode
-                )
-                permuted_logits = self.apply_post_perm_op(permuted_logits)
-                all_permuted_logits.append(permuted_logits)
-                all_unpermuted_logits.append(logits)
-            return all_permuted_logits, all_unpermuted_logits
+        return all_permuted_logits, all_unpermuted_logits
+
+    def permute(self, logits, target, sample_index):
+        logits = self.apply_pre_perm_op(logits)
+        permuted_logits = self.perm_model(
+            logits, target, sample_index, self.logits_softmax_mode
+        )
+        permuted_logits = self.apply_post_perm_op(permuted_logits)
+        return permuted_logits
 
     def apply_pre_perm_op(self, logits):
         if self.logits_softmax_mode == "log_softmax":

@@ -55,11 +55,7 @@ class TrainPermutation:
         loss, all_losses = self.criterion(output, batch["noisy_label"])
         if not val_step:
             loss.backward()
-            if self.grad_clip != -1:
-                # Grad clipping currently only works for one network.
-                nn.utils.clip_grad_value_(
-                    self.model.models[0].parameters(), self.grad_clip
-                )
+            self.perform_grad_clip()
             self.optimizer.step()
 
         metrics = {
@@ -74,6 +70,14 @@ class TrainPermutation:
             "all_losses": all_losses,
         }
         return metrics
+
+    def perform_grad_clip(self):
+        if self.grad_clip != -1:
+            print("WARNING CLIPPING")
+            # Grad clipping currently only works for one network.
+            nn.utils.clip_grad_value_(
+                    self.model.models[0].parameters(), self.grad_clip
+                )
 
     def one_epoch(self, epoch, val_epoch=False):
         loader = self.val_loader if val_epoch else self.train_loader

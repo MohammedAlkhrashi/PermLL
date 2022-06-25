@@ -41,8 +41,6 @@ class TrainPermutation:
         self.group_picker = group_picker
         self.callbacks: List[Callback] = callbacks
 
-    torch.autograd.anomaly_mode.set_detect_anomaly(True)
-
     def step(self, batch, epoch, val_step=False):
         batch = {key: value.to(self.device) for key, value in batch.items()}
         next_group: List[int] = self.group_picker.next_group(val_step)
@@ -50,6 +48,7 @@ class TrainPermutation:
         # theta step (avg_after)
         self.optimizer.network_optimizer.zero_grad()
         self.optimizer.permutation_optimizer.zero_grad()
+        self.model.models.requires_grad_(True)
         output, unpermuted_logits, avg_logits_permuted = self.model(
             batch["image"],
             target=batch["noisy_label"],
@@ -58,11 +57,10 @@ class TrainPermutation:
         )
         loss, all_losses = self.criterion(output, batch["noisy_label"])
         if not val_step:
-            self.model.models.requires_grad_(True)
             self.model.perm_model.requires_grad_(False)
             loss.backward(retain_graph=True)
         if not val_step:
-            # perm step (after_before)
+            # perm step (avg_before)
             loss2, _ = self.criterion(avg_logits_permuted, batch["noisy_label"])
             self.model.models.requires_grad_(False)
             self.model.perm_model.requires_grad_(True)

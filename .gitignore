@@ -7,3 +7,5 @@ stats_logs/
 a.yml
 apply_noise.py
 explore.py
+*.txt
+explore2.py

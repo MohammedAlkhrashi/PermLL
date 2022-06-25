@@ -1,5 +1,4 @@
 import random
-from pytz import common_timezones
 
 import torch
 import torchvision

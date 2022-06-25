@@ -139,6 +139,7 @@ def prepare_dataset(dataset_name, noise, noise_mode):
         )
 
     elif dataset_name == "cloth":
+        dataset_items["num_classes"] = 14
         data_folder = "./dataset/Cloth1M/"
         train_paths, train_noisy_labels = get_cloth1m_paths_labels(
             map_path="noisy_label_kv.txt",

@@ -186,7 +186,7 @@ def get_config():
         help="maximum number of iteration with no improvement, use -1 for no early stopping",
     )
     parser.add_argument(
-        "--dataset", type=str, default="cifar10", choices=["cifar10", "cifar100"]
+        "--dataset", type=str, default="cifar10", choices=["cifar10", "cifar100","cloth"]
     )
     parser.add_argument("--perm_momentum", type=float, default=0)
     parser.add_argument("--with_adaptive_perm_lr", type=str2bool, default=False)

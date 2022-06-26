@@ -1,3 +1,4 @@
+from typing import List
 import torch
 import wandb
 import os
@@ -49,11 +50,15 @@ class CallbackNoisyStatistics(Callback):
         return self.count_no_improvment == self.max_no_improvement
 
     def on_step_end(self, metrics, name):
-        self.running_loss += metrics["loss"]
-        _, predicted = torch.max(metrics["output"][0].detach(), 1)
-        _, prediction_before_perm = torch.max(
-            metrics["unpermuted_logits"][0].detach(), 1
+        average_output = self.average_prediction(metrics["output"])
+        _, predicted = torch.max(average_output.detach(), 1)
+
+        average_unpermuted_logits = self.average_prediction(
+            metrics["unpermuted_logits"]
         )
+        _, prediction_before_perm = torch.max(average_unpermuted_logits.detach(), 1)
+
+        self.running_loss += metrics["loss"]
         self.noisy_running_correct += (
             (predicted == metrics["batch"]["noisy_label"]).sum().item()
         )
@@ -98,6 +103,14 @@ class CallbackNoisyStatistics(Callback):
         wandb.log({f"{name}_noisy_loss": self.running_loss / self.total})
         print(f"{name}_clean acc = {self.clean_running_correct / self.total}")
         print(f"{name}_noisy acc = {self.noisy_running_correct / self.total}")
+
+    def average_prediction(self, output: List[torch.tensor]):
+        output = torch.stack(output)  # shape = (num_networks,batch,classes)
+        output_props = torch.softmax(
+            output, dim=-1
+        )  # this works even if output is log_softmax. (softmax(log_softmax(x)) = softmax(x))
+        avg_output_props = output_props.mean(0)  # average over networks
+        return avg_output_props
 
 
 def permuted_samples(metrics):

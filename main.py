@@ -1,7 +1,7 @@
 import argparse
 
 import torch
-from torch.nn.modules import CrossEntropyLoss, NLLLoss
+from torch.nn.modules import CrossEntropyLoss, NLLLoss, MSELoss, L1Loss, KLDivLoss
 
 import wandb
 from callbacks import (
@@ -20,7 +20,8 @@ from data_utils import create_dataloaders, create_train_transform
 from group_utils import GroupPicker, create_group_model, create_group_optimizer
 from model import GroupModel
 from train import TrainPermutation
-torch.autograd.set_detect_anomaly(True)
+
+# torch.autograd.set_detect_anomaly(True)
 
 
 def str2list(v):
@@ -39,6 +40,32 @@ def str2bool(v):
         return False
     else:
         raise argparse.ArgumentTypeError("Boolean value expected.")
+
+
+def create_loss_func(loss_func, logits_softmax_mode, config, reduction="none"):
+    log_space_prediction = "log" in logits_softmax_mode
+    prop_space_prediction = "softmax" == logits_softmax_mode
+    if loss_func == "mse":
+        print("Using MSE loss function")
+        assert prop_space_prediction
+        return MSELoss(reduction=reduction)
+    elif loss_func == "mae":
+        print("Using MAE loss function")
+        assert prop_space_prediction
+        return L1Loss(reduction=reduction)
+    elif loss_func == "kl":
+        print("Using KL loss function")
+        assert log_space_prediction
+        return KLDivLoss(reduction="batchmean")
+    elif loss_func == "ce":
+        print("Using CE loss function")
+        if log_space_prediction:
+            print("Using softmax before permutation, (NLLLoss Criterion)")
+            return NLLLoss(reduction=reduction)
+        else:
+            return CrossEntropyLoss(
+                label_smoothing=config["label_smoothing"], reduction=reduction
+            )
 
 
 def create_adaptive_perm_lr(
@@ -128,9 +155,6 @@ def get_config():
     )
     parser.add_argument("--noise", type=float, default=0.3)
     parser.add_argument("--noise_mode", type=str, default="sym")
-    parser.add_argument(
-        "--upperbound_exp", type=str2bool, default=False
-    )  # do we need this hparam?
     parser.add_argument("--networks_per_group", type=int, default=1)
     parser.add_argument("--num_groups", type=int, default=1)
     parser.add_argument("--change_every", type=int, default=1)
@@ -162,7 +186,7 @@ def get_config():
         help="maximum number of iteration with no improvement, use -1 for no early stopping",
     )
     parser.add_argument(
-        "--dataset", type=str, default="cifar10", choices=["cifar10", "cifar100"]
+        "--dataset", type=str, default="cifar10", choices=["cifar10", "cifar100","cloth"]
     )
     parser.add_argument("--perm_momentum", type=float, default=0)
     parser.add_argument("--with_adaptive_perm_lr", type=str2bool, default=False)
@@ -179,8 +203,15 @@ def get_config():
         "--logits_softmax_mode",
         type=str,
         default="default",
-        choices=["default", "log_softmax", "softmax","log_perm_softmax"],
+        choices=["default", "log_softmax", "softmax", "log_perm_softmax"],
     )
+    parser.add_argument(
+        "--loss_func",
+        type=str,
+        default="ce",
+        choices=["ce", "mse", "mae", "kl"],
+    )
+
     args = parser.parse_args()
     print(args)
     return vars(args)
@@ -190,7 +221,7 @@ def main():
     config = get_config()
     wandb.init(project="test-project", entity="nnlp", config=config)
     train_transform = create_train_transform(config["augmentation"])
-    loaders = create_dataloaders(
+    loaders, num_classes = create_dataloaders(
         dataset_name=config["dataset"],
         noise=config["noise"],
         noise_mode=config["noise_mode"],
@@ -209,7 +240,7 @@ def main():
     for _ in range(config["num_generations"]):
         model: GroupModel = create_group_model(
             config["networks_per_group"] * config["num_groups"],
-            num_classes=10 if config["dataset"] == "cifar10" else 100,
+            num_classes=num_classes,
             pretrained=config["pretrained"],
             dataset_targets=loaders["train"].dataset.noisy_labels,
             init_max_prob=config["init_max_prob"],
@@ -250,14 +281,9 @@ def main():
         if config["reshuffle_groups"]:
             callbacks.append(CallbackGroupPickerReseter(group_picker))
 
-        criterion: torch.nn.Module = None
-        if "softmax" in config["logits_softmax_mode"]:
-            criterion = NLLLoss(reduction="none")
-            print("Using softmax before permutation, (NLLLoss Criterion)")
-        else:
-            criterion = CrossEntropyLoss(
-                label_smoothing=config["label_smoothing"], reduction="none"
-            )
+        criterion: torch.nn.Module = create_loss_func(
+            config["loss_func"], config["logits_softmax_mode"], config
+        )
 
         TrainPermutation(
             model=model,

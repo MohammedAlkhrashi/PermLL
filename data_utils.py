@@ -66,6 +66,28 @@ def apply_noise(labels, noise, noise_mode, dataset_name):
             return torch.tensor(cifar_100_human_noise[noise_mode])
 
 
+def txt_to_list(path):
+    with open(path) as file:
+        lines = file.readlines()
+        lines = [line.rstrip() for line in lines]
+    return lines
+
+
+def txt_to_dict(path):
+    with open(path) as file:
+        lines = file.readlines()
+        lines = [line.rstrip().split() for line in lines]
+    return dict(lines)
+
+
+def get_cloth1m_paths_labels(map_path, keys_path, root="./Cloth1M/"):
+    map_path_noisy_label = txt_to_dict(f"{root}/annotations/{map_path}")
+    paths = txt_to_list(f"{root}/annotations/{keys_path}")
+    labels = [map_path_noisy_label[path] for path in paths]
+    paths = [f"{root}/{path}" for path in paths]
+    return paths, labels
+
+
 def prepare_dataset(dataset_name, noise, noise_mode):
 
     dataset_items = dict()
@@ -73,6 +95,7 @@ def prepare_dataset(dataset_name, noise, noise_mode):
     dataset_items["val"] = dict()
     dataset_items["test"] = dict()
     if dataset_name == "cifar10":
+        dataset_items["num_classes"] = 10
         data_folder = "./dataset"
         trainset = torchvision.datasets.CIFAR10(
             root=data_folder, train=True, download=True
@@ -81,6 +104,7 @@ def prepare_dataset(dataset_name, noise, noise_mode):
             root=data_folder, train=False, download=True
         )
     if dataset_name == "cifar100":
+        dataset_items["num_classes"] = 100
         data_folder = "./dataset"
         trainset = torchvision.datasets.CIFAR100(
             root=data_folder, train=True, download=True
@@ -115,7 +139,55 @@ def prepare_dataset(dataset_name, noise, noise_mode):
         )
 
     elif dataset_name == "cloth":
-        pass
+        dataset_items["num_classes"] = 14
+        data_folder = "./dataset/Cloth1M/"
+        train_paths, train_noisy_labels = get_cloth1m_paths_labels(
+            map_path="noisy_label_kv.txt",
+            keys_path="noisy_train_key_list.txt",
+            root=data_folder,
+        )
+        val_paths, val_clean_labels = get_cloth1m_paths_labels(
+            map_path="clean_label_kv.txt",
+            keys_path="clean_val_key_list.txt",
+            root=data_folder,
+        )
+        test_paths, test_clean_labels = get_cloth1m_paths_labels(
+            map_path="clean_label_kv.txt",
+            keys_path="clean_test_key_list.txt",
+            root=data_folder,
+        )
+
+        dataset_items["train"]["images"] = train_paths
+        dataset_items["train"]["clean_labels"] = train_noisy_labels
+        dataset_items["train"]["noisy_labels"] = train_noisy_labels
+
+        # TODO: add test key to dataset items
+        dataset_items["val"]["images"] = test_paths
+        dataset_items["val"]["clean_labels"] = test_clean_labels
+        dataset_items["val"]["noisy_labels"] = test_clean_labels
+        dataset_items["val"]["transforms"] = None
+
+        dataset_items["train"]["transforms"] = transforms.Compose(
+            [
+                transforms.Resize((256, 256)),
+                transforms.RandomCrop((224, 224)),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                ),
+            ]
+        )
+        dataset_items["val"]["transforms"] = transforms.Compose(
+            [
+                transforms.Resize((256, 256)),
+                transforms.CenterCrop((224, 224)),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                ),
+            ]
+        )
     else:
         raise ValueError()
 
@@ -126,7 +198,9 @@ def create_dataloaders(
     dataset_name, batch_size, num_workers, noise, train_transform, noise_mode
 ):
     dataset_items = prepare_dataset(dataset_name, noise, noise_mode)
-    dataset_items["train"]["transforms"] = train_transform
+    # TODO: move this to prepare dataset
+    if "transforms" not in dataset_items["train"]:
+        dataset_items["train"]["transforms"] = train_transform
     train_set = NoisyDataset(**dataset_items["train"])
     val_set = NoisyDataset(**dataset_items["val"])
 
@@ -136,10 +210,11 @@ def create_dataloaders(
     val_loader = DataLoader(
         val_set, batch_size=batch_size, shuffle=False, num_workers=num_workers
     )
-    return {
+    loaders = {
         "train": train_loader,
         "val": val_loader,
     }
+    return loaders, dataset_items["num_classes"]
 
 
 def create_train_transform(augmentation, dataset="cifar10"):

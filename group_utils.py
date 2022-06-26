@@ -3,8 +3,9 @@ from typing import List
 
 # import timm
 import torch.nn as nn
+from torch.nn import KLDivLoss, MSELoss, L1Loss
 from torch.optim import SGD, Adam
-
+import torch.nn.functional as F
 from model import GroupModel
 from resnet import ResNet18, ResNet34
 from PreResNet import PreActResNet18, PreActResNet34
@@ -17,7 +18,12 @@ class GroupLoss(nn.Module):
         self.equalize_losses = equalize_losses
 
     def forward(self, logits: List, target):
-        # TODO: check stack method instead
+        if isinstance(self.criterion, (MSELoss, L1Loss, KLDivLoss)):
+            num_classes = logits[0].size(1)
+            target = F.one_hot(target, num_classes=num_classes)
+            target = target.float()
+            assert logits[0].shape == target.shape
+
         loss = 0
         for logit in logits:
             # all_losses works only for one network
@@ -25,7 +31,6 @@ class GroupLoss(nn.Module):
             if self.equalize_losses:
                 all_losses *= 1 / all_losses * all_losses.mean()
             loss += all_losses.mean()
-            # loss += self.criterion(logit, target)
         return loss, all_losses.sort(dim=0)[0]
 
 
@@ -127,7 +132,7 @@ def create_group_optimizer(
     )
 
 
-def model_from_name(model_name, num_classes):
+def model_from_name(model_name, num_classes,pretrained):
     if model_name == "resnet18":
         return ResNet18(num_classes)
     elif model_name == "resnet34":
@@ -138,7 +143,7 @@ def model_from_name(model_name, num_classes):
         return PreActResNet34(num_classes)
     else:
         print("WARNING: Model loaded from timm,ignore if expected")
-        return timm.create_model(model_name, pretrained=False, num_classes=num_classes)
+        return timm.create_model(model_name, pretrained=pretrained, num_classes=num_classes)
 
 
 def create_group_model(
@@ -153,9 +158,19 @@ def create_group_model(
     softmax_temp=1,
     logits_softmax_mode=False,
 ):
+
     models = nn.ModuleList()
-    for _ in range(num_of_networks):
-        model = model_from_name(model_name, num_classes)
+    model_names_list = model_name.split(",")
+    repeat_factor = num_of_networks / len(model_names_list)
+    if not repeat_factor.is_integer():
+        raise ValueError(
+            "num_of_networks is not divisiable by the length of the: specific model names entered"
+        )
+    model_names_list = model_names_list * int(repeat_factor)
+    print(f"Models in GroupModel: {model_names_list}")
+    print(f'Number of classes: {num_classes}')
+    for model_name in model_names_list:
+        model = model_from_name(model_name, num_classes,pretrained)
         models.append(model)
     group_model = GroupModel(
         models,

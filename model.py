@@ -1,31 +1,6 @@
 import torch
 import torch.nn as nn
-
-
-def log_perm_softmax(P, a, f_x):
-    # M = torch.max(a+f_x).unsqueeze(-1)
-    # M = torch.max(a).unsqueeze(-1)
-    # M = torch.min(f_x).unsqueeze(-1)
-    # M = 0
-    M = torch.max(f_x).unsqueeze(-1)
-
-    log_sum_exp_alphas = torch.logsumexp(a, dim=1).unsqueeze(-1)
-    log_sum_exp_f_x = torch.logsumexp(f_x, dim=1).unsqueeze(-1)
-    rep_alphas = a.repeat_interleave(a.size(1) ** 2).reshape(P.shape)
-    rep_alphas = rep_alphas + f_x.reshape(-1, 1, 1, a.size(1))
-    normalized = rep_alphas - M
-    print("norm: ", normalized)
-    exp_normalized = torch.exp(normalized)
-
-    print("exp: ", exp_normalized)
-    scaled_perms = exp_normalized * P
-    sum_perm = torch.sum(scaled_perms, dim=1)
-    perm_x_ones = torch.sum(sum_perm, dim=-1)
-    print("perm_x_ones: ", perm_x_ones)
-    eps = 1e-9
-    log_perm_x_ones = torch.log(perm_x_ones + eps)
-    print("log_perm_x_ones: ", log_perm_x_ones)
-    return log_perm_x_ones + M - (log_sum_exp_alphas + log_sum_exp_f_x)
+import numpy as np
 
 
 def log_perm_softmax_stable(P, alphas, logits):
@@ -35,10 +10,25 @@ def log_perm_softmax_stable(P, alphas, logits):
     alphas_expanded = alphas.repeat_interleave(alphas.size(1) ** 2).reshape(P.shape)
     exponents = alphas_expanded + logits.reshape(-1, 1, 1, alphas.size(1))
     masked_exponents = exponents * P
-    neg_infs = torch.full(masked_exponents.shape, -torch.inf)
+
+    neg_infs = torch.full(masked_exponents.shape, -np.inf, device=logits.device)
     final_exponents = torch.where(masked_exponents != 0, masked_exponents, neg_infs)
     log_sum_exp_over_all_rows = torch.logsumexp(final_exponents, dim=(1, 3))
-    return log_sum_exp_over_all_rows - (log_sum_exp_alphas + log_sum_exp_f_x)
+
+    log_permuted_softmax_logits = log_sum_exp_over_all_rows - (
+        log_sum_exp_alphas + log_sum_exp_f_x
+    )  # =log(permutation(softmax(logits)))
+    return log_permuted_softmax_logits
+
+
+def perm_logits(logits, perm, alpha):
+    permutation_matrices = (
+        torch.softmax(alpha.unsqueeze(-1).unsqueeze(-1), dim=1) * perm
+    ).sum(1)
+    permuted_logits = torch.matmul(permutation_matrices, logits.unsqueeze(-1)).squeeze(
+        -1
+    )
+    return permuted_logits
 
 
 class GroupModel(nn.Module):
@@ -66,33 +56,45 @@ class GroupModel(nn.Module):
         self.logits_softmax_mode = logits_softmax_mode
 
     def forward(self, x, target, sample_index, network_indices):
+        if self.avg_before_perm:
+            return self.forward_averge_before_perm(
+                x, target, sample_index, network_indices
+            )
+        else:
+            return self.forward_average_after_perm(
+                x, target, sample_index, network_indices
+            )
+
+    def forward_averge_before_perm(self, x, target, sample_index, network_indices):
+        all_unpermuted_logits = []
+        for index in network_indices:
+            model = self.models[index]
+            logits = model(x)
+            all_unpermuted_logits.append(logits)
+
+        unpermuted_logits = torch.stack(all_unpermuted_logits)
+        unpermuted_logits = unpermuted_logits.mean(0)
+        permuted_logits = self.permute(unpermuted_logits, target, sample_index)
+        return [permuted_logits], [unpermuted_logits]
+
+    def forward_average_after_perm(self, x, target, sample_index, network_indices):
         all_permuted_logits = []
         all_unpermuted_logits = []
-        if self.avg_before_perm:
-            for index in network_indices:
-                model = self.models[index]
-                logits = model(x)
-                if self.logits_softmax_mode:
-                    logits = torch.log_softmax(logits, dim=1)
-                all_unpermuted_logits.append(logits)
-            unpermuted_logits = torch.stack(all_unpermuted_logits)
-            # unpermuted_logits = normalize(unpermuted_logits, dim=2)
-            unpermuted_logits = unpermuted_logits.mean(0)
-            permuted_logits = self.perm_model(unpermuted_logits, target, sample_index)
+        for index in network_indices:
+            model = self.models[index]
+            logits = model(x)
+            permuted_logits = self.permute(logits, target, sample_index)
+            all_unpermuted_logits.append(logits)
             all_permuted_logits.append(permuted_logits)
-            return all_permuted_logits, [unpermuted_logits]
-        else:
-            for index in network_indices:
-                model = self.models[index]
-                logits = model(x)
-                logits = self.apply_pre_perm_op(logits)
-                permuted_logits = self.perm_model(
-                    logits, target, sample_index, self.logits_softmax_mode
-                )
-                permuted_logits = self.apply_post_perm_op(permuted_logits)
-                all_permuted_logits.append(permuted_logits)
-                all_unpermuted_logits.append(logits)
-            return all_permuted_logits, all_unpermuted_logits
+        return all_permuted_logits, all_unpermuted_logits
+
+    def permute(self, logits, target, sample_index):
+        logits = self.apply_pre_perm_op(logits)
+        permuted_logits = self.perm_model(
+            logits, target, sample_index, self.logits_softmax_mode
+        )
+        permuted_logits = self.apply_post_perm_op(permuted_logits)
+        return permuted_logits
 
     def apply_pre_perm_op(self, logits):
         if self.logits_softmax_mode == "log_softmax":
@@ -107,8 +109,6 @@ class GroupModel(nn.Module):
         if self.logits_softmax_mode == "log_softmax":
             pass
         elif self.logits_softmax_mode == "softmax":
-            permuted_logits = torch.log(permuted_logits)
-        elif self.logits_softmax_mode == "stable_softmax":
             pass
         else:
             pass
@@ -148,21 +148,19 @@ class PermutationModel(nn.Module):
 
     def forward(self, logits, target, sample_index, logits_softmax_mode=None):
         if not self.training or self.disable_module:
-            return logits
-
+            return (
+                torch.log_softmax(logits, dim=1)
+                if logits_softmax_mode == "log_perm_softmax"
+                else logits
+            )
         perm = self.all_perm[target]
         perm = perm.to(self.alpha_matrix.device)
         alpha = self.alpha_matrix[sample_index] / self.softmax_temp
+
         if logits_softmax_mode == "log_perm_softmax":
             return log_perm_softmax_stable(perm, alpha, logits)
         else:
-            permutation_matrices = (
-                self.softmax(alpha.unsqueeze(-1).unsqueeze(-1)) * perm
-            ).sum(1)
-            permuted_logits = torch.matmul(
-                permutation_matrices, logits.unsqueeze(-1)
-            ).squeeze(-1)
-            return permuted_logits
+            return perm_logits(logits, perm, alpha)
 
     def create_alpha_matrix(self, targets):
         alpha_matrix = nn.Parameter(

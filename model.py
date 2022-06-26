@@ -88,6 +88,7 @@ class GroupModel(nn.Module):
             all_permuted_logits.append(permuted_logits)
 
         avg_logits = torch.stack(all_unpermuted_logits).mean(0)
+        avg_logits = avg_logits.detach()
         avg_logits_permuted = self.permute(avg_logits, target, sample_index)
 
         return all_permuted_logits, all_unpermuted_logits, [avg_logits_permuted]

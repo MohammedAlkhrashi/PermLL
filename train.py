@@ -45,43 +45,28 @@ class TrainPermutation:
         batch = {key: value.to(self.device) for key, value in batch.items()}
         next_group: List[int] = self.group_picker.next_group(val_step)
 
-        # theta step (avg_after)
-        self.optimizer.network_optimizer.zero_grad()
-        self.optimizer.permutation_optimizer.zero_grad()
-        self.model.models.requires_grad_(True)
         output, unpermuted_logits, avg_logits_permuted = self.model(
             batch["image"],
             target=batch["noisy_label"],
             sample_index=batch["sample_index"],
             network_indices=next_group,
         )
-        loss, all_losses = self.criterion(output, batch["noisy_label"])
+        networks_loss, all_losses = self.criterion(output, batch["noisy_label"])
         if not val_step:
-            self.model.perm_model.requires_grad_(False)
-            loss.backward(retain_graph=True)
-        if not val_step:
-            # perm step (avg_before)
-            loss2, _ = self.criterion(avg_logits_permuted, batch["noisy_label"])
-            self.model.models.requires_grad_(False)
-            self.model.perm_model.requires_grad_(True)
-            loss2.backward()
-            # before_perm_0 = list(self.model.perm_model.parameters())[0].clone().detach()
-            # before_theta_0 = list(self.model.models.parameters())[0].clone().detach()
+            self.optimizer.network_optimizer.zero_grad()
+            # networks_loss, _ = ...
+            networks_loss.backward(retain_graph=False)
             self.optimizer.network_optimizer.step()
-            # after_perm_1= list(self.model.perm_model.parameters())[0].clone().detach()
-            # after_theta_1 = list(self.model.models.parameters())[0].clone().detach()
-            # assert torch.allclose(before_perm_0, after_perm_1)
-            # assert not torch.allclose(before_theta_0, after_theta_1)
+
+            self.optimizer.permutation_optimizer.zero_grad()
+            perm_loss, _ = self.criterion(avg_logits_permuted, batch["noisy_label"])
+            perm_loss.backward()
             self.optimizer.permutation_optimizer.step()
-            # after_perm_2= list(self.model.perm_model.parameters())[0].clone().detach()
-            # after_theta_2 = list(self.model.models.parameters())[0].clone().detach()
-            # assert not torch.allclose(after_perm_1, after_perm_2)
-            # assert torch.allclose(after_theta_1, after_theta_2)
 
 
         metrics = {
             "batch": batch,
-            "loss": loss,
+            "loss": networks_loss,
             "output": output,
             "unpermuted_logits": unpermuted_logits,
             "sample_index": batch["sample_index"],

@@ -1,7 +1,7 @@
 import random
 from typing import List
 
-import timm
+# import timm
 import torch.nn as nn
 from torch.optim import SGD, Adam
 
@@ -146,7 +146,7 @@ def create_group_model(
     pretrained,
     num_classes,
     dataset_targets,
-    perm_init_value,
+    init_max_prob,
     avg_before_perm,
     model_name="resnet18",
     disable_perm=False,
@@ -161,7 +161,7 @@ def create_group_model(
         models,
         num_classes,
         dataset_targets,
-        perm_init_value,
+        init_max_prob,
         avg_before_perm,
         disable_perm,
         softmax_temp=softmax_temp,

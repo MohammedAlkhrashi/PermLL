@@ -138,7 +138,7 @@ def get_config():
     parser.add_argument("--model_name", type=str, default="resnet18")
     parser.add_argument("--num_workers", type=int, default=15)
     parser.add_argument("--num_generations", type=int, default=1)
-    parser.add_argument("--perm_init_value", type=float, default=3)
+    parser.add_argument("--init_max_prob", type=float, default=3)
     parser.add_argument(
         "--num_permutation_limit",
         type=int,
@@ -212,7 +212,7 @@ def main():
             num_classes=10 if config["dataset"] == "cifar10" else 100,
             pretrained=config["pretrained"],
             dataset_targets=loaders["train"].dataset.noisy_labels,
-            perm_init_value=config["perm_init_value"],
+            init_max_prob=config["init_max_prob"],
             model_name=config["model_name"],
             avg_before_perm=config["avg_before_perm"],
             disable_perm=config["disable_perm"],

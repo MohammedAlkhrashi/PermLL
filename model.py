@@ -47,7 +47,7 @@ class GroupModel(nn.Module):
         models: nn.ModuleList,
         num_classes: int,
         dataset_targets,
-        perm_init_value,
+        init_max_prob,
         avg_before_perm,
         disable_perm=False,
         softmax_temp=1,
@@ -59,7 +59,7 @@ class GroupModel(nn.Module):
         self.perm_model = PermutationModel(
             num_classes,
             dataset_targets,
-            perm_init_value,
+            init_max_prob,
             disable_module=disable_perm,
             softmax_temp=softmax_temp,
         )
@@ -123,7 +123,7 @@ class PermutationModel(nn.Module):
         self,
         num_classes: int,
         dataset_targets: list,
-        perm_init_value: float,
+        init_max_prob: float,
         disable_module=False,
         softmax_temp=1,
     ) -> None:
@@ -131,7 +131,8 @@ class PermutationModel(nn.Module):
         self.num_classes = num_classes
         self.num_train_samples = len(dataset_targets)
         self.softmax = nn.Softmax(1)
-        self.perm_init_value = perm_init_value
+        self.perm_init_value = torch.log(torch.tensor(init_max_prob*(num_classes-1)/(1-init_max_prob))).item()
+        print(self.perm_init_value)
 
         self.alpha_matrix = self.create_alpha_matrix(dataset_targets)
         self.all_perm = self.create_all_perm()

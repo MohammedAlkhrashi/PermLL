@@ -1,14 +1,16 @@
 import random
 from typing import List
 
-# import timm
+import timm
+import torch
 import torch.nn as nn
-from torch.nn import KLDivLoss, MSELoss, L1Loss
-from torch.optim import SGD, Adam
 import torch.nn.functional as F
+from torch.nn import KLDivLoss, L1Loss, MSELoss
+from torch.optim import SGD, Adam
+
 from model import GroupModel
-from resnet import ResNet18, ResNet34
 from PreResNet import PreActResNet18, PreActResNet34
+from resnet import ResNet18, ResNet34
 
 
 class GroupLoss(nn.Module):
@@ -32,6 +34,26 @@ class GroupLoss(nn.Module):
                 all_losses *= 1 / all_losses * all_losses.mean()
             loss += all_losses.mean()
         return loss, all_losses.sort(dim=0)[0]
+
+
+class NLLSmoothing(nn.Module):
+    """based on: https://github.com/pytorch/pytorch/issues/7455#issuecomment-513062631"""
+
+    def __init__(self, smoothing=0.0, dim=-1, reduction="mean"):
+        super(NLLSmoothing, self).__init__()
+        self.confidence = 1.0 - smoothing
+        self.smoothing = smoothing
+        self.dim = dim
+        self.reduction = reduction
+
+    def forward(self, pred, target):
+        with torch.no_grad():
+            true_dist = torch.zeros_like(pred)
+            num_classes = pred.size(-1)
+            true_dist.fill_(self.smoothing / (num_classes - 1))
+            true_dist.scatter_(1, target.unsqueeze(1), self.confidence)
+        loss = torch.sum(-true_dist * pred, dim=self.dim)
+        return torch.mean(loss) if self.reduction == "mean" else loss
 
 
 class GroupPicker:
@@ -132,7 +154,7 @@ def create_group_optimizer(
     )
 
 
-def model_from_name(model_name, num_classes,pretrained):
+def model_from_name(model_name, num_classes, pretrained):
     if model_name == "resnet18":
         return ResNet18(num_classes)
     elif model_name == "resnet34":
@@ -143,7 +165,9 @@ def model_from_name(model_name, num_classes,pretrained):
         return PreActResNet34(num_classes)
     else:
         print("WARNING: Model loaded from timm,ignore if expected")
-        return timm.create_model(model_name, pretrained=pretrained, num_classes=num_classes)
+        return timm.create_model(
+            model_name, pretrained=pretrained, num_classes=num_classes
+        )
 
 
 def create_group_model(
@@ -168,9 +192,9 @@ def create_group_model(
         )
     model_names_list = model_names_list * int(repeat_factor)
     print(f"Models in GroupModel: {model_names_list}")
-    print(f'Number of classes: {num_classes}')
+    print(f"Number of classes: {num_classes}")
     for model_name in model_names_list:
-        model = model_from_name(model_name, num_classes,pretrained)
+        model = model_from_name(model_name, num_classes, pretrained)
         models.append(model)
     group_model = GroupModel(
         models,

@@ -211,7 +211,7 @@ def get_config():
         default="ce",
         choices=["ce", "mse", "mae", "kl"],
     )
-
+    parser.add_argument('--normalize_logits', type=str2bool, default=False)
     args = parser.parse_args()
     print(args)
     return vars(args)
@@ -246,6 +246,7 @@ def main():
             perm_init_value=config["perm_init_value"],
             model_name=config["model_name"],
             avg_before_perm=config["avg_before_perm"],
+            normalize_logits=config["normalize_logits"],
             disable_perm=config["disable_perm"],
             softmax_temp=config["softmax_temp"],
             logits_softmax_mode=config["logits_softmax_mode"],

@@ -162,13 +162,15 @@ class PermutationModel(nn.Module):
 
         perm = self.all_perm[target]
         perm = perm.to(self.alpha_matrix.device)
-        alpha = self.alpha_matrix[sample_index] / self.softmax_temp
-        alpha = self.alpha_matrix[sample_index] / self.softmax_temp
+        alpha = self.alpha_matrix[sample_index]
+        alpha = alpha / self.softmax_temp
 
         argmax_alpha = torch.argmax(alpha, dim=1)
         target_swap_mask = argmax_alpha != target
         logits[target_swap_mask] = default_layer(logits[target_swap_mask])
-        logits[~target_swap_mask] = perm_layer(perm, alpha, logits[~target_swap_mask])
+        logits[~target_swap_mask] = perm_layer(
+            perm[~target_swap_mask], alpha[~target_swap_mask], logits[~target_swap_mask]
+        )
         final_target = argmax_alpha
 
         return perm_layer(perm, alpha, logits), final_target

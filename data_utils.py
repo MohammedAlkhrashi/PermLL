@@ -204,10 +204,10 @@ def create_dataloaders(
     val_set = NoisyDataset(**dataset_items["val"])
 
     train_loader = DataLoader(
-        train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers
+        train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers,pin_memory=True
     )
     val_loader = DataLoader(
-        val_set, batch_size=batch_size, shuffle=False, num_workers=num_workers
+        val_set, batch_size=batch_size, shuffle=False, num_workers=num_workers,pin_memory=True
     )
     loaders = {
         "train": train_loader,

@@ -158,7 +158,7 @@ class PermutationModel(nn.Module):
             perm_layer = perm_logits
 
         if not self.training or self.disable_module:
-            return default_layer(logits)
+            return default_layer(logits), target
 
         perm = self.all_perm[target]
         perm = perm.to(self.alpha_matrix.device)

@@ -46,7 +46,7 @@ class TrainPermutation:
         next_group: List[int] = self.group_picker.next_group(val_step)
 
         self.optimizer.zero_grad()
-        output, unpermuted_logits = self.model(
+        output, unpermuted_logits, batch["noisy_label"] = self.model(
             batch["image"],
             target=batch["noisy_label"],
             sample_index=batch["sample_index"],
@@ -75,9 +75,7 @@ class TrainPermutation:
         if self.grad_clip != -1:
             print("WARNING CLIPPING")
             # Grad clipping currently only works for one network.
-            nn.utils.clip_grad_value_(
-                    self.model.models[0].parameters(), self.grad_clip
-                )
+            nn.utils.clip_grad_value_(self.model.models[0].parameters(), self.grad_clip)
 
     def one_epoch(self, epoch, val_epoch=False):
         loader = self.val_loader if val_epoch else self.train_loader

@@ -21,9 +21,9 @@ def log_perm_softmax_stable(P, alphas, logits):
     return log_permuted_softmax_logits
 
 
-def perm_logits(logits, perm, alpha):
+def perm_logits(P, alphas, logits):
     permutation_matrices = (
-        torch.softmax(alpha.unsqueeze(-1).unsqueeze(-1), dim=1) * perm
+        torch.softmax(alphas.unsqueeze(-1).unsqueeze(-1), dim=1) * P
     ).sum(1)
     permuted_logits = torch.matmul(permutation_matrices, logits.unsqueeze(-1)).squeeze(
         -1
@@ -83,18 +83,18 @@ class GroupModel(nn.Module):
         for index in network_indices:
             model = self.models[index]
             logits = model(x)
-            permuted_logits = self.permute(logits, target, sample_index)
+            permuted_logits, new_target = self.permute(logits, target, sample_index)
             all_unpermuted_logits.append(logits)
             all_permuted_logits.append(permuted_logits)
-        return all_permuted_logits, all_unpermuted_logits
+        return all_permuted_logits, all_unpermuted_logits, new_target
 
     def permute(self, logits, target, sample_index):
         logits = self.apply_pre_perm_op(logits)
-        permuted_logits = self.perm_model(
+        permuted_logits, new_target = self.perm_model(
             logits, target, sample_index, self.logits_softmax_mode
         )
         permuted_logits = self.apply_post_perm_op(permuted_logits)
-        return permuted_logits
+        return permuted_logits, new_target
 
     def apply_pre_perm_op(self, logits):
         if self.logits_softmax_mode == "log_softmax":
@@ -146,20 +146,32 @@ class PermutationModel(nn.Module):
             print("*" * 100)
 
     def forward(self, logits, target, sample_index, logits_softmax_mode=None):
+        default_layer = None
+        perm_layer = None
+        if logits_softmax_mode == "log_perm_softmax":
+            # NLLLoss expects logsoftmax
+            default_layer = nn.LogSoftmax(dim=1)
+            perm_layer = log_perm_softmax_stable
+        else:
+            # CrossEntropyLoss will handle logsoftmax
+            default_layer = nn.Identity()
+            perm_layer = perm_logits
+
         if not self.training or self.disable_module:
-            return (
-                torch.log_softmax(logits, dim=1)
-                if logits_softmax_mode == "log_perm_softmax"
-                else logits
-            )
+            return default_layer(logits)
+
         perm = self.all_perm[target]
         perm = perm.to(self.alpha_matrix.device)
         alpha = self.alpha_matrix[sample_index] / self.softmax_temp
+        alpha = self.alpha_matrix[sample_index] / self.softmax_temp
 
-        if logits_softmax_mode == "log_perm_softmax":
-            return log_perm_softmax_stable(perm, alpha, logits)
-        else:
-            return perm_logits(logits, perm, alpha)
+        argmax_alpha = torch.argmax(alpha, dim=1)
+        target_swap_mask = argmax_alpha != target
+        logits[target_swap_mask] = default_layer(logits[target_swap_mask])
+        logits[~target_swap_mask] = perm_layer(perm, alpha, logits[~target_swap_mask])
+        final_target = argmax_alpha
+
+        return perm_layer(perm, alpha, logits), final_target
 
     def create_alpha_matrix(self, targets):
         alpha_matrix = nn.Parameter(

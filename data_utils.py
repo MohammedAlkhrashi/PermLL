@@ -83,7 +83,7 @@ def txt_to_dict(path):
 def get_cloth1m_paths_labels(map_path, keys_path, root="./Cloth1M/"):
     map_path_noisy_label = txt_to_dict(f"{root}/annotations/{map_path}")
     paths = txt_to_list(f"{root}/annotations/{keys_path}")
-    labels = [map_path_noisy_label[path] for path in paths]
+    labels = [int(map_path_noisy_label[path]) for path in paths]
     paths = [f"{root}/{path}" for path in paths]
     return paths, labels
 
@@ -158,14 +158,13 @@ def prepare_dataset(dataset_name, noise, noise_mode):
         )
 
         dataset_items["train"]["images"] = train_paths
-        dataset_items["train"]["clean_labels"] = train_noisy_labels
-        dataset_items["train"]["noisy_labels"] = train_noisy_labels
+        dataset_items["train"]["clean_labels"] = torch.tensor(train_noisy_labels)
+        dataset_items["train"]["noisy_labels"] = torch.tensor(train_noisy_labels)
 
         # TODO: add test key to dataset items
         dataset_items["val"]["images"] = test_paths
-        dataset_items["val"]["clean_labels"] = test_clean_labels
-        dataset_items["val"]["noisy_labels"] = test_clean_labels
-        dataset_items["val"]["transforms"] = None
+        dataset_items["val"]["clean_labels"] = torch.tensor(test_clean_labels)
+        dataset_items["val"]["noisy_labels"] = torch.tensor(test_clean_labels)
 
         dataset_items["train"]["transforms"] = transforms.Compose(
             [
@@ -205,10 +204,10 @@ def create_dataloaders(
     val_set = NoisyDataset(**dataset_items["val"])
 
     train_loader = DataLoader(
-        train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers
+        train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers,pin_memory=True
     )
     val_loader = DataLoader(
-        val_set, batch_size=batch_size, shuffle=False, num_workers=num_workers
+        val_set, batch_size=batch_size, shuffle=False, num_workers=num_workers,pin_memory=True
     )
     loaders = {
         "train": train_loader,

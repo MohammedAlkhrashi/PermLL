@@ -17,7 +17,12 @@ from callbacks import (
     AdaptiveNetworkLRScheduler,
 )
 from data_utils import create_dataloaders, create_train_transform
-from group_utils import GroupPicker, create_group_model, create_group_optimizer
+from group_utils import (
+    GroupPicker,
+    NLLSmoothing,
+    create_group_model,
+    create_group_optimizer,
+)
 from model import GroupModel
 from train import TrainPermutation
 
@@ -61,7 +66,9 @@ def create_loss_func(loss_func, logits_softmax_mode, config, reduction="none"):
         print("Using CE loss function")
         if log_space_prediction:
             print("Using softmax before permutation, (NLLLoss Criterion)")
-            return NLLLoss(reduction=reduction)
+            return NLLSmoothing(
+                smoothing=config["label_smoothing"], reduction=reduction
+            )
         else:
             return CrossEntropyLoss(
                 label_smoothing=config["label_smoothing"], reduction=reduction
@@ -162,7 +169,7 @@ def get_config():
     parser.add_argument("--model_name", type=str, default="resnet18")
     parser.add_argument("--num_workers", type=int, default=15)
     parser.add_argument("--num_generations", type=int, default=1)
-    parser.add_argument("--init_max_prob", type=float, default=3)
+    parser.add_argument("--init_max_prob", type=float, default=0.7)
     parser.add_argument(
         "--num_permutation_limit",
         type=int,
@@ -186,7 +193,10 @@ def get_config():
         help="maximum number of iteration with no improvement, use -1 for no early stopping",
     )
     parser.add_argument(
-        "--dataset", type=str, default="cifar10", choices=["cifar10", "cifar100","cloth"]
+        "--dataset",
+        type=str,
+        default="cifar10",
+        choices=["cifar10", "cifar100", "cloth"],
     )
     parser.add_argument("--perm_momentum", type=float, default=0)
     parser.add_argument("--with_adaptive_perm_lr", type=str2bool, default=False)

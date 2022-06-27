@@ -39,6 +39,7 @@ class GroupModel(nn.Module):
         dataset_targets,
         perm_init_value,
         avg_before_perm,
+        normalize_logits,
         disable_perm=False,
         softmax_temp=1,
         logits_softmax_mode=False,
@@ -54,7 +55,7 @@ class GroupModel(nn.Module):
             softmax_temp=softmax_temp,
         )
         self.logits_softmax_mode = logits_softmax_mode
-
+        self.normalize_logits = normalize_logits
     def forward(self, x, target, sample_index, network_indices):
         if self.avg_before_perm:
             return self.forward_averge_before_perm(
@@ -87,7 +88,10 @@ class GroupModel(nn.Module):
             all_unpermuted_logits.append(logits)
             all_permuted_logits.append(permuted_logits)
 
-        avg_logits = torch.stack(all_unpermuted_logits).mean(0)
+        if self.normalize_logits:
+            avg_logits = self.normalize_and_avg(torch.stack(all_unpermuted_logits))
+        else:
+            avg_logits = torch.stack(all_unpermuted_logits).mean(0)
         avg_logits = avg_logits.detach()
         avg_logits_permuted = self.permute(avg_logits, target, sample_index)
 
@@ -121,6 +125,13 @@ class GroupModel(nn.Module):
 
     def __len__(self):
         return len(self.models)
+
+    def normalize_and_avg(self, logits):
+        n = logits.norm(dim=-1)
+        n_logits = ( logits.transpose(0,2)/n.t() ).transpose(0,2)
+        scaling = logits.mean(0).norm() / n_logits.mean(0).norm()
+        n_logits *= scaling
+        return n_logits.mean(0)
 
 
 class PermutationModel(nn.Module):

@@ -1,7 +1,7 @@
 import random
 from typing import List
 
-import timm
+# import timm
 import torch.nn as nn
 from torch.nn import KLDivLoss, MSELoss, L1Loss
 from torch.optim import SGD, Adam
@@ -153,6 +153,7 @@ def create_group_model(
     dataset_targets,
     perm_init_value,
     avg_before_perm,
+    normalize_logits,
     model_name="resnet18",
     disable_perm=False,
     softmax_temp=1,
@@ -178,6 +179,7 @@ def create_group_model(
         dataset_targets,
         perm_init_value,
         avg_before_perm,
+        normalize_logits,
         disable_perm,
         softmax_temp=softmax_temp,
         logits_softmax_mode=logits_softmax_mode,

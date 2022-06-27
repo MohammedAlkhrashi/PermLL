@@ -165,7 +165,7 @@ class PermutationModel(nn.Module):
         alpha = self.alpha_matrix[sample_index]
         alpha = alpha / self.softmax_temp
 
-        argmax_alpha = torch.argmax(alpha, dim=1)
+        argmax_alpha = torch.argmax(alpha, dim=1).detach()
         target_swap_mask = argmax_alpha != target
         logits[target_swap_mask] = default_layer(logits[target_swap_mask])
         logits[~target_swap_mask] = perm_layer(
@@ -173,7 +173,7 @@ class PermutationModel(nn.Module):
         )
         final_target = argmax_alpha
 
-        return perm_layer(perm, alpha, logits), final_target
+        return logits, final_target
 
     def create_alpha_matrix(self, targets):
         alpha_matrix = nn.Parameter(

@@ -166,7 +166,7 @@ def get_config():
         "--lr_scheduler",
         type=str,
         default="default",
-        choices=["default", "one_cycle", "cosine", "adaptive"],
+        choices=["default", "one_cycle", "cosine", "adaptive","step_lr"],
     )
     parser.add_argument("--grad_clip", type=float, default=-1)
     parser.add_argument("--networks_optim", type=str, default="adam")

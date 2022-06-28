@@ -21,15 +21,14 @@ def apply_sym_noise(labels: Tensor, noise: float):
     labels_per_class = int(len(labels) / len(classes))
     labels_to_change_per_class = int(labels_per_class * noise)
     for cur_class in classes:
-        other_classes = classes[classes != cur_class]
         idxs_to_change = random.sample(
             range(labels_per_class), k=labels_to_change_per_class
         )
         idxs_with_cur_class_label = torch.where(original == cur_class)[0]
         counter = cur_class.item() - 1  # random.randint(0, len(other_classes)-1)
         for idx in idxs_to_change:
-            labels[idxs_with_cur_class_label[idx]] = other_classes[counter]
-            counter = (counter + 1) % len(other_classes)
+            labels[idxs_with_cur_class_label[idx]] = classes[counter]
+            counter = (counter + 1) % len(classes)
     return labels
 
 

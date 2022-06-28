@@ -56,6 +56,11 @@ def apply_noise(labels, noise, noise_mode, dataset_name):
     elif noise_mode == "asym":
         num_classes = 10 if dataset_name == "cifar10" else 100
         return apply_asym_noise(labels, noise, num_classes=num_classes)
+    elif noise_mode == 'custom':
+        custom_labels = torch.load('./diff_indices_test/all_noisy_labels.pt')
+        custom_indices = torch.load('./diff_indices_test/difficult_indices.pt')
+        labels[custom_indices] = custom_labels[custom_indices]
+        return labels
     else:
         cifar_10_human_noise = torch.load("./CIFAR-N/CIFAR-10_human.pt")
         cifar_100_human_noise = torch.load("./CIFAR-N/CIFAR-100_human.pt")

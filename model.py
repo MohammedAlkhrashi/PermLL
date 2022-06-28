@@ -137,6 +137,7 @@ class PermutationModel(nn.Module):
         self.all_perm = self.create_all_perm()
 
         self.softmax_temp = softmax_temp
+        self.hard_swap = True
         self.disable_module = disable_module
         if self.disable_module:
             print("*" * 100)
@@ -165,13 +166,19 @@ class PermutationModel(nn.Module):
         alpha = self.alpha_matrix[sample_index]
         alpha = alpha / self.softmax_temp
 
-        argmax_alpha = torch.argmax(alpha, dim=1).detach()
-        target_swap_mask = argmax_alpha != target
-        logits[target_swap_mask] = default_layer(logits[target_swap_mask])
-        logits[~target_swap_mask] = perm_layer(
-            perm[~target_swap_mask], alpha[~target_swap_mask], logits[~target_swap_mask]
-        )
-        final_target = argmax_alpha
+        if self.hard_swap:
+            argmax_alpha = torch.argmax(alpha, dim=1).detach()
+            target_swap_mask = argmax_alpha != target
+            logits[target_swap_mask] = default_layer(logits[target_swap_mask])
+            logits[~target_swap_mask] = perm_layer(
+                perm[~target_swap_mask],
+                alpha[~target_swap_mask],
+                logits[~target_swap_mask],
+            )
+            final_target = argmax_alpha
+        else:
+            logits = perm_layer(perm, alpha, logits)
+            final_target = target
 
         return logits, final_target
 

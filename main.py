@@ -122,10 +122,17 @@ def create_lr_scheduler(lr_scheduler, optimizer, loaders, config):
 
 
 def get_new_labels(
-    new_label_source, prediction_before_perm, sample_index, alpha_matrix
+    new_label_source, prediction_before_perm, sample_index, alpha_matrix, old_labels
 ):
     if new_label_source == "alpha_matrix":
         _, alpha_label = torch.max(alpha_matrix.detach().cpu(), 1)
+
+        diff = old_labels != alpha_label
+        rand_bool = torch.rand(alpha_label.shape) > 0.5
+        flip = diff * rand_bool
+        random_label = torch.randint(0, 10, alpha_label.shape)
+        alpha_label[flip] = random_label[flip]
+        
         return alpha_label
     elif new_label_source == "prediction_before_perm":
         sample_pred = zip(sample_index.tolist(), prediction_before_perm.tolist())
@@ -315,6 +322,7 @@ def main():
             callbacks[0].all_train_prediction_before_perm,
             callbacks[0].all_sample_index,
             model.perm_model.alpha_matrix,
+            loaders["train"].dataset.noisy_labels
         )  # TODO: fix callbacks[0]
         loaders["train"].dataset.noisy_labels = new_label
 

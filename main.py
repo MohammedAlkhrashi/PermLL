@@ -131,8 +131,9 @@ def get_new_labels(
         rand_bool = torch.rand(alpha_label.shape) > 0.5
         flip = diff * rand_bool
         random_label = torch.randint(0, 10, alpha_label.shape)
-        alpha_label[flip] = random_label[flip]
-        
+        # alpha_label[flip] = random_label[flip]
+        alpha_label[flip] = old_labels[flip]
+
         return alpha_label
     elif new_label_source == "prediction_before_perm":
         sample_pred = zip(sample_index.tolist(), prediction_before_perm.tolist())

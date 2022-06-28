@@ -2,6 +2,7 @@ import argparse
 
 import torch
 from torch.nn.modules import CrossEntropyLoss, NLLLoss, MSELoss, L1Loss, KLDivLoss
+from torch import nn
 
 import wandb
 from callbacks import (
@@ -132,7 +133,16 @@ def get_new_labels(
         flip = diff * rand_bool
         random_label = torch.randint(0, 10, alpha_label.shape)
         # alpha_label[flip] = random_label[flip]
-        alpha_label[flip] = old_labels[flip]
+        # alpha_label[flip] = old_labels[flip]
+        
+        #####
+        soft = nn.Softmax(1)
+        max_label = soft(alpha_matrix.detach().cpu()).max(1)[0]
+        _, idx = max_label.sort()
+        idx_changed = [i for i in idx.tolist() if i in diff.tolist()]
+        least_confident_pred = idx_changed[:len(idx_changed)//2]
+        alpha_label[least_confident_pred] = old_labels[least_confident_pred]
+        #####
 
         return alpha_label
     elif new_label_source == "prediction_before_perm":

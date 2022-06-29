@@ -90,6 +90,9 @@ class TrainPermutation:
         batch["noisy_label"] = (
             batch["noisy_label"][0] if lam >= 0.5 else batch["noisy_label"][1]
         )
+        batch["sample_index"] = (
+            batch["sample_index"][0] if lam >= 0.5 else batch["sample_index"][1]
+        )
         metrics = {
             "batch": batch,
             "loss": final_loss,

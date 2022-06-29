@@ -100,7 +100,7 @@ class TrainPermutation:
             "unpermuted_logits": unpermuted_logits,
             "sample_index": batch["sample_index"],
             "alpha_matrix": self.model.perm_model.alpha_matrix,
-            "all_true_labels": self.train_loader.dataset.original_labels,
+            "all_clean_labels": self.train_loader.dataset.original_labels,
             "all_noisy_labels": self.train_loader.dataset.noisy_labels,
             "all_losses": all_losses,
         }

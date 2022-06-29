@@ -27,14 +27,15 @@ class GroupLoss(nn.Module):
             target = target.float()
             assert logits[0].shape == target.shape
 
-        loss = 0
+        loss1 = 0
+        loss2 = 0 
         for logit in logits:
-            # all_losses works only for one network
-            all_losses = self.criterion(logit, target)
-            if self.equalize_losses:
-                all_losses *= 1 / all_losses * all_losses.mean()
-            loss += all_losses.mean()
-        return loss, all_losses.sort(dim=0)[0]
+            if isinstance(logit,tuple) and len(logit) == 2:
+                loss1 += self.criterion(logit[0], target[0]).mean()
+                loss2 += self.criterion(logit[1], target[1]).mean()
+            else:
+                loss1 += self.criterion(logit[0], target[0]).mean()
+        return (loss1,loss2), loss1.sort(dim=0)[0]
 
 
 class NLLSmoothing(nn.Module):

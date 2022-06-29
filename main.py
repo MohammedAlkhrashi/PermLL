@@ -144,7 +144,6 @@ def get_new_labels(
         idx_changed = [i for i in idx.tolist() if i in diff.tolist()]
         least_confident_pred = idx_changed[: len(idx_changed) // 2]
         alpha_label[least_confident_pred] = old_labels[least_confident_pred]
-        #####
 
         return alpha_label
     elif new_label_source == "prediction_before_perm":
@@ -161,7 +160,7 @@ def get_config():
     parser.add_argument("--weight_decay", type=float, default=0.0)
     parser.add_argument("--momentum", type=float, default=0.0)
     parser.add_argument("--epochs", type=int, default=200)
-    parser.add_argument("--batch_size", type=int, default=64)
+    parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--pretrained", type=str2bool, default=False)
     parser.add_argument("--disable_perm", type=str2bool, default=False)
     parser.add_argument(
@@ -251,6 +250,11 @@ def get_config():
     parser.add_argument("--reweight_sampler", type=str2bool, default=False)
     parser.add_argument("--save_stats_on_end", type=str2bool, default=False)
     parser.add_argument("--warmup", type=int, default=1)
+    parser.add_argument(
+        "--mixup_alpha",
+        type=float,
+        default=0.2,
+    )
 
     args = parser.parse_args()
     print(args)

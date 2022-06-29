@@ -21,9 +21,9 @@ def log_perm_softmax_stable(P, alphas, logits):
     return log_permuted_softmax_logits
 
 
-def perm_logits(logits, perm, alpha):
+def perm_logits(P, alphas, logits):
     permutation_matrices = (
-        torch.softmax(alpha.unsqueeze(-1).unsqueeze(-1), dim=1) * perm
+        torch.softmax(alphas.unsqueeze(-1).unsqueeze(-1), dim=1) * P
     ).sum(1)
     permuted_logits = torch.matmul(permutation_matrices, logits.unsqueeze(-1)).squeeze(
         -1
@@ -149,19 +149,37 @@ class PermutationModel(nn.Module):
             print("*" * 100)
 
     def forward(self, logits, target, sample_index, logits_softmax_mode=None):
-        if not self.training or self.disable_module:
-            return (
-                torch.log_softmax(logits, dim=1)
-                if logits_softmax_mode == "log_perm_softmax"
-                else logits
-            )
-        perm = self.all_perm[target]
-        alpha = self.alpha_matrix[sample_index] / self.softmax_temp
-
+        default_layer = None
+        perm_layer = None
         if logits_softmax_mode == "log_perm_softmax":
-            return log_perm_softmax_stable(perm, alpha, logits)
+            # NLLLoss expects logsoftmax
+            default_layer = nn.LogSoftmax(dim=1)
+            perm_layer = log_perm_softmax_stable
         else:
-            return perm_logits(logits, perm, alpha)
+            # CrossEntropyLoss will handle logsoftmax
+            default_layer = nn.Identity()
+            perm_layer = perm_logits
+
+        if not self.training or self.disable_module:
+            return (default_layer(logits),)
+
+        is_mixup = isinstance(target, tuple) and len(target) == 2
+        if is_mixup:
+            perm1 = self.all_perm[target[0]]
+            perm1 = perm1.to(self.alpha_matrix.device)
+            alpha1 = self.alpha_matrix[sample_index[0]] / self.softmax_temp
+
+            perm2 = self.all_perm[target[1]]
+            perm2 = perm2.to(self.alpha_matrix.device)
+            alpha2 = self.alpha_matrix[sample_index[1]] / self.softmax_temp
+
+            return perm_layer(perm1, alpha1, logits), perm_layer(perm2, alpha2, logits)
+        else:
+            perm = self.all_perm[target[0]]
+            perm = perm.to(self.alpha_matrix.device)
+            alpha = self.alpha_matrix[sample_index[0]] / self.softmax_temp
+
+            return (perm_layer(perm, alpha, logits),)
 
     def create_alpha_matrix(self, targets):
         alpha_matrix = nn.Parameter(

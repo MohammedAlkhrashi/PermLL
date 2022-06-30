@@ -349,6 +349,7 @@ def main():
             grad_clip=config["grad_clip"],
             num_permutation_limit=config["num_permutation_limit"],
             equalize_losses=config["equalize_losses"],
+            mixup_alpha=config['mixup_alpha']
         ).start()
 
         if config["num_generations"] > 1:

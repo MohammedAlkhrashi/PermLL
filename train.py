@@ -36,6 +36,7 @@ class TrainPermutation:
         self.num_permutation_limit = num_permutation_limit
         self.mixup_alpha = mixup_alpha
         self.is_mixup = mixup_alpha != -1
+        print(f"Mixup is: {self.is_mixup}")
 
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -74,7 +75,6 @@ class TrainPermutation:
             sample_index=batch["sample_index"],
             network_indices=next_group,
         )
-        batch["true_label"][0] if lam >= 0.5 else batch["true_label"][1]
         loss, all_losses = self.criterion(output, batch["noisy_label"])
         final_loss = lam * loss[0] + (1 - lam) * loss[1]
         if not val_step:
@@ -82,17 +82,12 @@ class TrainPermutation:
             self.perform_grad_clip()
             self.optimizer.step()
 
-        # for stats
-        output = output[0] if lam >= 0.5 else output[1]
-        batch["true_label"] = (
-            batch["true_label"][0] if lam >= 0.5 else batch["true_label"][1]
-        )
-        batch["noisy_label"] = (
-            batch["noisy_label"][0] if lam >= 0.5 else batch["noisy_label"][1]
-        )
-        batch["sample_index"] = (
-            batch["sample_index"][0] if lam >= 0.5 else batch["sample_index"][1]
-        )
+        stats_idx = int(lam < 0.5)
+        output = [out[stats_idx] for out in output]
+        batch["true_label"] = batch["true_label"][stats_idx]
+        batch["noisy_label"] = batch["noisy_label"][stats_idx]
+        batch["sample_index"] = batch["sample_index"][stats_idx]
+
         metrics = {
             "batch": batch,
             "loss": final_loss,

@@ -75,9 +75,7 @@ class TrainPermutation:
         if self.grad_clip != -1:
             print("WARNING CLIPPING")
             # Grad clipping currently only works for one network.
-            nn.utils.clip_grad_value_(
-                    self.model.models[0].parameters(), self.grad_clip
-                )
+            nn.utils.clip_grad_value_(self.model.models[0].parameters(), self.grad_clip)
 
     def one_epoch(self, epoch, val_epoch=False):
         loader = self.val_loader if val_epoch else self.train_loader
@@ -97,6 +95,7 @@ class TrainPermutation:
 
     def start(self):
         self.model.to(self.device)
+        self.model.perm_model.all_perm = self.model.perm_model.all_perm.to(self.device)
         for epoch in range(1, self.epochs + 1):
             self.model.train()
             metrics = self.one_epoch(epoch, val_epoch=False)

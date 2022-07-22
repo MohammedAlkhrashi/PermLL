@@ -32,8 +32,10 @@ def apply_sym_noise(labels: Tensor, noise: float):
     return labels
 
 
-def apply_asym_noise(labels: Tensor, noise: float, num_classes):
-    class_noise_map = {i: (i + 1) % num_classes for i in range(num_classes)}
+def apply_asym_noise(labels: Tensor, noise: float, num_classes, corruption_map=None):
+    if corruption_map is None:
+        corruption_map = {i: (i + 1) % num_classes for i in range(num_classes)}
+
     original = labels.clone()
     labels = labels.clone()
     classes = labels.unique()
@@ -44,7 +46,7 @@ def apply_asym_noise(labels: Tensor, noise: float, num_classes):
             range(labels_per_class), k=labels_to_change_per_class
         )
         idxs_with_cur_class_label = torch.where(original == cur_class)[0]
-        labels[idxs_with_cur_class_label[idxs_to_change]] = class_noise_map[
+        labels[idxs_with_cur_class_label[idxs_to_change]] = corruption_map[
             int(cur_class)
         ]
     return labels
@@ -55,10 +57,20 @@ def apply_noise(labels, noise, noise_mode, dataset_name):
         return apply_sym_noise(labels, noise)
     elif noise_mode == "asym":
         num_classes = 10 if dataset_name == "cifar10" else 100
-        return apply_asym_noise(labels, noise, num_classes=num_classes)
-    elif noise_mode == 'custom':
-        custom_labels = torch.load('./diff_indices_test/all_noisy_labels.pt')
-        custom_indices = torch.load('./diff_indices_test/difficult_indices.pt')
+        if dataset_name == "cifar10":
+            corruption_map = {
+                9: 1,  # truck -> automobile
+                2: 0,  # bird -> airplane
+                3: 5,  # cat -> dog
+                5: 3,  # dog -> cat
+                4: 7,  # deer -> horse
+            }
+        return apply_asym_noise(
+            labels, noise, num_classes=num_classes, corruption_map=corruption_map
+        )
+    elif noise_mode == "custom":
+        custom_labels = torch.load("./diff_indices_test/all_noisy_labels.pt")
+        custom_indices = torch.load("./diff_indices_test/difficult_indices.pt")
         labels[custom_indices] = custom_labels[custom_indices]
         return labels
     else:
@@ -93,7 +105,6 @@ def get_cloth1m_paths_labels(map_path, keys_path, root="./Cloth1M/"):
 
 
 def prepare_dataset(dataset_name, noise, noise_mode):
-
     dataset_items = dict()
     dataset_items["train"] = dict()
     dataset_items["val"] = dict()
@@ -208,10 +219,18 @@ def create_dataloaders(
     val_set = NoisyDataset(**dataset_items["val"])
 
     train_loader = DataLoader(
-        train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers,pin_memory=True
+        train_set,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=num_workers,
+        pin_memory=True,
     )
     val_loader = DataLoader(
-        val_set, batch_size=batch_size, shuffle=False, num_workers=num_workers,pin_memory=True
+        val_set,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=True,
     )
     loaders = {
         "train": train_loader,

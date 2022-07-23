@@ -58,14 +58,16 @@ def apply_noise(labels, noise, noise_mode, dataset_name):
         return apply_sym_noise(labels, noise)
     elif noise_mode == "asym":
         num_classes = 10 if dataset_name == "cifar10" else 100
-        if dataset_name == "cifar10":
-            corruption_map = {
-                9: 1,  # truck -> automobile
-                2: 0,  # bird -> airplane
-                3: 5,  # cat -> dog
-                5: 3,  # dog -> cat
-                4: 7,  # deer -> horse
-            }
+        corruption_map = {
+            9: 1,  # truck -> automobile
+            2: 0,  # bird -> airplane
+            3: 5,  # cat -> dog
+            5: 3,  # dog -> cat
+            4: 7,  # deer -> horse
+        }
+        if noise_mode == "asym2":
+            del corruption_map[5]  # some methods remove dog -> cat
+
         return apply_asym_noise(
             labels, noise, num_classes=num_classes, corruption_map=corruption_map
         )

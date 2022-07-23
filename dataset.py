@@ -15,7 +15,6 @@ def print_transation_matrix(clean_labels, noisy_labels):
     classes = clean_labels.unique()
     samples_per_class = int(len(clean_labels) / len(classes))
     print(cm / samples_per_class)
-    exit()
 
 
 class NoisyDataset(Dataset):

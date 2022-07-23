@@ -56,7 +56,7 @@ def apply_asym_noise(labels: Tensor, noise: float, num_classes, corruption_map=N
 def apply_noise(labels, noise, noise_mode, dataset_name):
     if noise_mode == "sym":
         return apply_sym_noise(labels, noise)
-    elif noise_mode == "asym":
+    elif noise_mode == "asym" or noise_mode == 'asym2':
         num_classes = 10 if dataset_name == "cifar10" else 100
         corruption_map = {
             9: 1,  # truck -> automobile

@@ -179,7 +179,12 @@ def get_config():
         choices=["AutoAugment", "default"],
     )
     parser.add_argument("--noise", type=float, default=0.3)
-    parser.add_argument("--noise_mode", type=str, default="sym", choices=['sym','asym','asym2','custom','real'])
+    parser.add_argument(
+        "--noise_mode",
+        type=str,
+        default="sym",
+        choices=["sym", "asym", "asym2", "custom", "real"],
+    )
     parser.add_argument("--networks_per_group", type=int, default=1)
     parser.add_argument("--num_groups", type=int, default=1)
     parser.add_argument("--change_every", type=int, default=1)
@@ -230,7 +235,7 @@ def get_config():
     parser.add_argument(
         "--logits_softmax_mode",
         type=str,
-        default="default",
+        default="log_perm_softmax",
         choices=["default", "log_softmax", "softmax", "log_perm_softmax"],
     )
     parser.add_argument(

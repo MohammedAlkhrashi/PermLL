@@ -1,6 +1,7 @@
 import random
 from typing import List
 
+import torchvision
 import timm
 import torch
 import torch.nn as nn
@@ -159,6 +160,12 @@ def model_from_name(model_name, num_classes, pretrained):
         return ResNet18(num_classes)
     elif model_name == "resnet34":
         return ResNet34(num_classes)
+    elif model_name == "resnet50":
+        # for Clothing-1M
+        model = torchvision.models.resnet50(weights="IMAGENET1K_V2")
+        in_ = model.fc.in_features
+        model.fc = nn.Linear(in_, num_classes)
+        return model
     elif model_name == "preactresnet18":
         return PreActResNet18(num_classes)
     elif model_name == "preactresnet34":

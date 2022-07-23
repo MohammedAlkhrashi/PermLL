@@ -46,9 +46,10 @@ def apply_asym_noise(labels: Tensor, noise: float, num_classes, corruption_map=N
             range(labels_per_class), k=labels_to_change_per_class
         )
         idxs_with_cur_class_label = torch.where(original == cur_class)[0]
-        labels[idxs_with_cur_class_label[idxs_to_change]] = corruption_map[
-            int(cur_class)
-        ]
+        labels[idxs_with_cur_class_label[idxs_to_change]] = corruption_map.get(
+            int(cur_class), int(cur_class)
+        )
+
     return labels
 
 

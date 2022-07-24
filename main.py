@@ -207,6 +207,7 @@ def get_config():
     )
     parser.add_argument("--reshuffle_groups", type=str2bool, default=False)
     parser.add_argument("--avg_before_perm", type=str2bool, default=False)
+    parser.add_argument("--with_sampler", type=str2bool, default=False)
     parser.add_argument("--gamma", type=float, default=0.1)
     parser.add_argument("--milestones", type=str2list, default="150")
     parser.add_argument(
@@ -261,6 +262,7 @@ def main():
         num_workers=config["num_workers"],
         batch_size=config["batch_size"],
         train_transform=train_transform,
+        with_sampler=config["with_sampler"],
     )
     group_picker = GroupPicker(
         networks_per_group=config["networks_per_group"],

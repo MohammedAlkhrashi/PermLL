@@ -5,7 +5,7 @@ import torchvision
 import torchvision.transforms as transforms
 from PIL import Image
 from torch import Tensor
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
 
 from autoaugment import CIFAR10Policy
 from dataset import NoisyDataset
@@ -56,7 +56,7 @@ def apply_asym_noise(labels: Tensor, noise: float, num_classes, corruption_map=N
 def apply_noise(labels, noise, noise_mode, dataset_name):
     if noise_mode == "sym":
         return apply_sym_noise(labels, noise)
-    elif noise_mode == "asym" or noise_mode == 'asym2':
+    elif noise_mode == "asym" or noise_mode == "asym2":
         num_classes = 10 if dataset_name == "cifar10" else 100
         corruption_map = {
             9: 1,  # truck -> automobile
@@ -211,8 +211,30 @@ def prepare_dataset(dataset_name, noise, noise_mode):
     return dataset_items
 
 
+def create_train_sampler(noisy_labels, num_classes):
+    N = len(noisy_labels)
+    weights = [None] * N
+    class_count = [0] * num_classes
+    for i in range(N):
+        label = noisy_labels[i]
+        class_count[label.item()] += 1
+    for i in range(N):
+        label = noisy_labels[i]
+        weights[i] = 1 / class_count[label.item()]
+
+    weights = torch.DoubleTensor(weights)
+    sampler = WeightedRandomSampler(torch.DoubleTensor(weights), N)
+    return sampler
+
+
 def create_dataloaders(
-    dataset_name, batch_size, num_workers, noise, train_transform, noise_mode
+    dataset_name,
+    batch_size,
+    num_workers,
+    noise,
+    train_transform,
+    noise_mode,
+    with_sampler=False,
 ):
     dataset_items = prepare_dataset(dataset_name, noise, noise_mode)
     # TODO: move this to prepare dataset
@@ -221,12 +243,20 @@ def create_dataloaders(
     train_set = NoisyDataset(**dataset_items["train"])
     val_set = NoisyDataset(**dataset_items["val"])
 
+    train_sampler = None
+    if with_sampler:
+        print("Using weighted sampler")
+        train_sampler = create_train_sampler(
+            dataset_items["train"]["noisy_labels"], dataset_items["num_classes"]
+        )
+
     train_loader = DataLoader(
         train_set,
         batch_size=batch_size,
-        shuffle=True,
+        shuffle=True if train_sampler is None else False,
         num_workers=num_workers,
         pin_memory=True,
+        sampler=train_sampler,
     )
     val_loader = DataLoader(
         val_set,

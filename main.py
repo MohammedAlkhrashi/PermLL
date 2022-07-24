@@ -134,13 +134,13 @@ def get_new_labels(
         random_label = torch.randint(0, 10, alpha_label.shape)
         # alpha_label[flip] = random_label[flip]
         # alpha_label[flip] = old_labels[flip]
-        
+
         #####
         soft = nn.Softmax(1)
         max_label = soft(alpha_matrix.detach().cpu()).max(1)[0]
         _, idx = max_label.sort()
         idx_changed = [i for i in idx.tolist() if i in diff.tolist()]
-        least_confident_pred = idx_changed[:len(idx_changed)//2]
+        least_confident_pred = idx_changed[: len(idx_changed) // 2]
         alpha_label[least_confident_pred] = old_labels[least_confident_pred]
         #####
 
@@ -166,7 +166,7 @@ def get_config():
         "--lr_scheduler",
         type=str,
         default="default",
-        choices=["default", "one_cycle", "cosine", "adaptive","step_lr"],
+        choices=["default", "one_cycle", "cosine", "adaptive", "step_lr"],
     )
     parser.add_argument("--grad_clip", type=float, default=-1)
     parser.add_argument("--networks_optim", type=str, default="adam")
@@ -179,13 +179,18 @@ def get_config():
         choices=["AutoAugment", "default"],
     )
     parser.add_argument("--noise", type=float, default=0.3)
-    parser.add_argument("--noise_mode", type=str, default="sym")
+    parser.add_argument(
+        "--noise_mode",
+        type=str,
+        default="sym",
+        choices=["sym", "asym", "asym2", "custom", "real"],
+    )
     parser.add_argument("--networks_per_group", type=int, default=1)
     parser.add_argument("--num_groups", type=int, default=1)
     parser.add_argument("--change_every", type=int, default=1)
     parser.add_argument("--gpu_num", type=str, default="0")
     parser.add_argument("--model_name", type=str, default="resnet18")
-    parser.add_argument("--num_workers", type=int, default=15)
+    parser.add_argument("--num_workers", type=int, default=8)
     parser.add_argument("--num_generations", type=int, default=1)
     parser.add_argument("--init_max_prob", type=float, default=0.7)
     parser.add_argument(
@@ -202,6 +207,7 @@ def get_config():
     )
     parser.add_argument("--reshuffle_groups", type=str2bool, default=False)
     parser.add_argument("--avg_before_perm", type=str2bool, default=False)
+    parser.add_argument("--with_sampler", type=str2bool, default=False)
     parser.add_argument("--gamma", type=float, default=0.1)
     parser.add_argument("--milestones", type=str2list, default="150")
     parser.add_argument(
@@ -230,7 +236,7 @@ def get_config():
     parser.add_argument(
         "--logits_softmax_mode",
         type=str,
-        default="default",
+        default="log_perm_softmax",
         choices=["default", "log_softmax", "softmax", "log_perm_softmax"],
     )
     parser.add_argument(
@@ -256,6 +262,7 @@ def main():
         num_workers=config["num_workers"],
         batch_size=config["batch_size"],
         train_transform=train_transform,
+        with_sampler=config["with_sampler"],
     )
     group_picker = GroupPicker(
         networks_per_group=config["networks_per_group"],
@@ -333,7 +340,7 @@ def main():
             callbacks[0].all_train_prediction_before_perm,
             callbacks[0].all_sample_index,
             model.perm_model.alpha_matrix,
-            loaders["train"].dataset.noisy_labels
+            loaders["train"].dataset.noisy_labels,
         )  # TODO: fix callbacks[0]
         loaders["train"].dataset.noisy_labels = new_label
 

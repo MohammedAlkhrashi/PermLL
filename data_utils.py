@@ -53,11 +53,8 @@ def apply_asym_noise(labels: Tensor, noise: float, num_classes, corruption_map=N
     return labels
 
 
-def apply_noise(labels, noise, noise_mode, dataset_name):
-    if noise_mode == "sym":
-        return apply_sym_noise(labels, noise)
-    elif noise_mode == "asym" or noise_mode == "asym2":
-        num_classes = 10 if dataset_name == "cifar10" else 100
+def get_asym_corruption_map(dataset_name, noise_mode):
+    if dataset_name == "cifar10":
         corruption_map = {
             9: 1,  # truck -> automobile
             2: 0,  # bird -> airplane
@@ -67,6 +64,26 @@ def apply_noise(labels, noise, noise_mode, dataset_name):
         }
         if noise_mode == "asym2":
             del corruption_map[5]  # some methods remove dog -> cat
+        return corruption_map
+    if dataset_name == "cifar100":
+        # change subclasses (5 per superclass) within the same superclass (20 total superclasses)
+        # (e.g 5->6, 6>7, 7>8, 8>9, 9>5)
+
+        corruption_map = {}
+        for super in range(20):
+            for sub in range(5):
+                from_sub = (super * 5) + sub
+                to_sub = (super * 5) + (sub + 1) % 5
+                corruption_map[from_sub] = to_sub
+        return corruption_map
+
+
+def apply_noise(labels, noise, noise_mode, dataset_name):
+    if noise_mode == "sym":
+        return apply_sym_noise(labels, noise)
+    elif noise_mode == "asym" or noise_mode == "asym2":
+        num_classes = 10 if dataset_name == "cifar10" else 100
+        corruption_map = get_asym_corruption_map(dataset_name, noise_mode)
 
         return apply_asym_noise(
             labels, noise, num_classes=num_classes, corruption_map=corruption_map

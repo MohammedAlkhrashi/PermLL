@@ -1,5 +1,7 @@
 from typing import List
 import torch
+from torch.utils.data import DataLoader
+
 import wandb
 import os
 from termcolor import colored
@@ -327,3 +329,33 @@ class CallbackLabelCorrectionStats(Callback):
             torch.save(
                 metrics[metric].detach().cpu(), os.path.join(log_dir, metric + ".pt")
             )
+
+
+class CallbackReweightSampler(Callback):
+    def __init__(self, data_loader: DataLoader, num_classes):
+        self.data_loader = data_loader
+        self.num_classes = num_classes
+
+    def on_step_end(self, metrics, name):
+        pass
+
+    def on_epoch_end(self, metrics, epoch, name):
+        if name != "train":
+            return
+
+        _, corrected_labels = torch.max(metrics["alpha_matrix"].detach().cpu(), 1)
+        N = len(corrected_labels)
+        weights = [None] * N
+        class_count = [0] * self.num_classes
+        for i in range(N):
+            label = corrected_labels[i]
+            class_count[label.item()] += 1
+        for i in range(N):
+            label = corrected_labels[i]
+            weights[i] = 1 / class_count[label.item()]
+
+        new_weights = torch.DoubleTensor(weights)
+        self.data_loader.sampler.weights = new_weights
+
+    def on_training_end(self, metrics):
+        pass

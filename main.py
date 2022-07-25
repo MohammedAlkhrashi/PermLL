@@ -11,6 +11,7 @@ from callbacks import (
     CallbackLabelCorrectionStats,
     CallbackNoisyStatistics,
     CallbackPermutationStats,
+    CallbackReweightSampler,
     CosineAnnealingLRScheduler,
     IdentityCallback,
     OneCycleLearningRateScheduler,
@@ -245,6 +246,7 @@ def get_config():
         default="ce",
         choices=["ce", "mse", "mae", "kl"],
     )
+    parser.add_argument("--reweight_sampler", type=str2bool, default=False)
 
     args = parser.parse_args()
     print(args)
@@ -315,6 +317,8 @@ def main():
         ]
         if config["reshuffle_groups"]:
             callbacks.append(CallbackGroupPickerReseter(group_picker))
+        if config["reweight_sampler"]:
+            callbacks.append(CallbackReweightSampler(loaders["train"], num_classes))
 
         criterion: torch.nn.Module = create_loss_func(
             config["loss_func"], config["logits_softmax_mode"], config

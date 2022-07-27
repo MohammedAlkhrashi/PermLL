@@ -196,7 +196,6 @@ def prepare_dataset(dataset_name, noise, noise_mode):
         dataset_items["train"]["clean_labels"] = torch.tensor(train_noisy_labels)
         dataset_items["train"]["noisy_labels"] = torch.tensor(train_noisy_labels)
 
-        # TODO: add test key to dataset items
         dataset_items["val"]["images"] = test_paths
         dataset_items["val"]["clean_labels"] = torch.tensor(test_clean_labels)
         dataset_items["val"]["noisy_labels"] = torch.tensor(test_clean_labels)

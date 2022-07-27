@@ -247,6 +247,7 @@ def get_config():
         choices=["ce", "mse", "mae", "kl"],
     )
     parser.add_argument("--reweight_sampler", type=str2bool, default=False)
+    parser.add_argument("--save_stats_on_end", type=str2bool, default=False)
 
     args = parser.parse_args()
     print(args)
@@ -303,7 +304,6 @@ def main():
         callbacks = [
             CallbackNoisyStatistics(max_no_improvement=config["early_stopping"]),
             CallbackPermutationStats(),
-            CallbackLabelCorrectionStats(),
             create_lr_scheduler(
                 config["lr_scheduler"], optimizer.network_optimizer, loaders, config
             ),
@@ -319,6 +319,8 @@ def main():
             callbacks.append(CallbackGroupPickerReseter(group_picker))
         if config["reweight_sampler"]:
             callbacks.append(CallbackReweightSampler(loaders["train"], num_classes))
+        if config["save_stats_on_end"]:
+            callbacks.append(CallbackLabelCorrectionStats())
 
         criterion: torch.nn.Module = create_loss_func(
             config["loss_func"], config["logits_softmax_mode"], config

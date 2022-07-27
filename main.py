@@ -344,14 +344,15 @@ def main():
             equalize_losses=config["equalize_losses"],
         ).start()
 
-        new_label = get_new_labels(
-            config["new_label_source"],
-            callbacks[0].all_train_prediction_before_perm,
-            callbacks[0].all_sample_index,
-            model.perm_model.alpha_matrix,
-            loaders["train"].dataset.noisy_labels,
-        )  # TODO: fix callbacks[0]
-        loaders["train"].dataset.noisy_labels = new_label
+        if config["num_generations"] > 1:
+            new_label = get_new_labels(
+                config["new_label_source"],
+                callbacks[0].all_train_prediction_before_perm,
+                callbacks[0].all_sample_index,
+                model.perm_model.alpha_matrix,
+                loaders["train"].dataset.noisy_labels,
+            )  # TODO: fix callbacks[0]
+            loaders["train"].dataset.noisy_labels = new_label
 
 
 if __name__ == "__main__":

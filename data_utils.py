@@ -9,6 +9,9 @@ from torch.utils.data import DataLoader, WeightedRandomSampler
 
 from autoaugment import CIFAR10Policy
 from dataset import NoisyDataset
+import numpy as np
+from sklearn.model_selection import train_test_split
+
 
 NORMALIZATION = ((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
 
@@ -79,6 +82,8 @@ def get_asym_corruption_map(dataset_name, noise_mode):
 
 
 def apply_noise(labels, noise, noise_mode, dataset_name):
+    if len(labels) == 0:
+        return labels
     if noise_mode == "sym":
         return apply_sym_noise(labels, noise)
     elif noise_mode == "asym" or noise_mode == "asym2":
@@ -124,7 +129,7 @@ def get_cloth1m_paths_labels(map_path, keys_path, root="./Cloth1M/"):
     return paths, labels
 
 
-def prepare_dataset(dataset_name, noise, noise_mode):
+def prepare_dataset(dataset_name, noise, noise_mode, val_size):
     dataset_items = dict()
     dataset_items["train"] = dict()
     dataset_items["val"] = dict()
@@ -135,37 +140,77 @@ def prepare_dataset(dataset_name, noise, noise_mode):
         trainset = torchvision.datasets.CIFAR10(
             root=data_folder, train=True, download=True
         )
-        valset = torchvision.datasets.CIFAR10(
+        testset = torchvision.datasets.CIFAR10(
             root=data_folder, train=False, download=True
         )
+
     if dataset_name == "cifar100":
         dataset_items["num_classes"] = 100
         data_folder = "./dataset"
         trainset = torchvision.datasets.CIFAR100(
             root=data_folder, train=True, download=True
         )
-        valset = torchvision.datasets.CIFAR100(
+        testset = torchvision.datasets.CIFAR100(
             root=data_folder, train=False, download=True
         )
     if dataset_name == "cifar10" or dataset_name == "cifar100":
-        dataset_items["train"]["images"] = trainset.data
-        dataset_items["train"]["clean_labels"] = torch.tensor(trainset.targets)
+        if val_size == 0:
+            trainset_data, valset_data, trainset_target, valset_target = (
+                trainset.data,
+                [],
+                trainset.targets,
+                [],
+            )
+        else:
+            (
+                trainset_data,
+                valset_data,
+                trainset_target,
+                valset_target,
+            ) = train_test_split(
+                trainset.data,
+                trainset.targets,
+                test_size=val_size,
+                random_state=42,
+                stratify=trainset.targets,
+            )
+
+        del trainset
+
+        dataset_items["train"]["images"] = trainset_data
+        dataset_items["train"]["clean_labels"] = torch.tensor(trainset_target)
         dataset_items["train"]["noisy_labels"] = apply_noise(
-            torch.tensor(trainset.targets),
+            torch.tensor(trainset_target),
             noise=noise,
             noise_mode=noise_mode,
             dataset_name=dataset_name,
         )
 
-        dataset_items["val"]["images"] = valset.data
-        dataset_items["val"]["clean_labels"] = torch.tensor(valset.targets)
+        dataset_items["val"]["images"] = valset_data
+        dataset_items["val"]["clean_labels"] = torch.tensor(valset_target)
         dataset_items["val"]["noisy_labels"] = apply_noise(
-            torch.tensor(valset.targets),
+            torch.tensor(valset_target),
             noise=noise,
             noise_mode="sym",
             dataset_name=dataset_name,
         )
         dataset_items["val"]["transforms"] = transforms.Compose(
+            [
+                Image.fromarray,
+                transforms.ToTensor(),
+                transforms.Normalize(*NORMALIZATION),
+            ]
+        )
+
+        dataset_items["test"]["images"] = testset.data
+        dataset_items["test"]["clean_labels"] = torch.tensor(testset.targets)
+        dataset_items["test"]["noisy_labels"] = apply_noise(
+            torch.tensor(testset.targets),
+            noise=noise,
+            noise_mode="sym",
+            dataset_name=dataset_name,
+        )
+        dataset_items["test"]["transforms"] = transforms.Compose(
             [
                 Image.fromarray,
                 transforms.ToTensor(),
@@ -196,9 +241,13 @@ def prepare_dataset(dataset_name, noise, noise_mode):
         dataset_items["train"]["clean_labels"] = torch.tensor(train_noisy_labels)
         dataset_items["train"]["noisy_labels"] = torch.tensor(train_noisy_labels)
 
-        dataset_items["val"]["images"] = test_paths
-        dataset_items["val"]["clean_labels"] = torch.tensor(test_clean_labels)
-        dataset_items["val"]["noisy_labels"] = torch.tensor(test_clean_labels)
+        dataset_items["val"]["images"] = val_paths
+        dataset_items["val"]["clean_labels"] = torch.tensor(val_clean_labels)
+        dataset_items["val"]["noisy_labels"] = torch.tensor(val_clean_labels)
+
+        dataset_items["test"]["images"] = test_paths
+        dataset_items["test"]["clean_labels"] = torch.tensor(test_clean_labels)
+        dataset_items["test"]["noisy_labels"] = torch.tensor(test_clean_labels)
 
         dataset_items["train"]["transforms"] = transforms.Compose(
             [
@@ -212,6 +261,16 @@ def prepare_dataset(dataset_name, noise, noise_mode):
             ]
         )
         dataset_items["val"]["transforms"] = transforms.Compose(
+            [
+                transforms.Resize((256, 256)),
+                transforms.CenterCrop((224, 224)),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                ),
+            ]
+        )
+        dataset_items["test"]["transforms"] = transforms.Compose(
             [
                 transforms.Resize((256, 256)),
                 transforms.CenterCrop((224, 224)),
@@ -250,14 +309,17 @@ def create_dataloaders(
     noise,
     train_transform,
     noise_mode,
+    val_size,
     with_sampler=False,
 ):
-    dataset_items = prepare_dataset(dataset_name, noise, noise_mode)
+    dataset_items = prepare_dataset(dataset_name, noise, noise_mode, val_size)
     # TODO: move this to prepare dataset
     if "transforms" not in dataset_items["train"]:
         dataset_items["train"]["transforms"] = train_transform
     train_set = NoisyDataset(**dataset_items["train"])
     val_set = NoisyDataset(**dataset_items["val"])
+    test_set = NoisyDataset(**dataset_items["test"])
+    print(len(train_set), len(val_set), len(test_set))
 
     train_sampler = None
     if with_sampler:
@@ -281,9 +343,17 @@ def create_dataloaders(
         num_workers=num_workers,
         pin_memory=True,
     )
+    test_loader = DataLoader(
+        test_set,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=True,
+    )
     loaders = {
         "train": train_loader,
         "val": val_loader,
+        "test": test_loader,
     }
     return loaders, dataset_items["num_classes"]
 

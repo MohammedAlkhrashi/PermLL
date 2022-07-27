@@ -16,6 +16,7 @@ class TrainPermutation:
         optimizer,
         train_loader,
         val_loader,
+        test_loader,
         epochs,
         criterion,
         grad_clip,
@@ -34,6 +35,7 @@ class TrainPermutation:
 
         self.train_loader = train_loader
         self.val_loader = val_loader
+        self.test_loader = test_loader
 
         self.device = torch.device(
             f"cuda:{gpu_num}" if torch.cuda.is_available() else "cpu"
@@ -77,10 +79,8 @@ class TrainPermutation:
             # Grad clipping currently only works for one network.
             nn.utils.clip_grad_value_(self.model.models[0].parameters(), self.grad_clip)
 
-    def one_epoch(self, epoch, val_epoch=False):
-        loader = self.val_loader if val_epoch else self.train_loader
-        name = "val" if val_epoch else "train"
-
+    def one_epoch(self, epoch, loader, name, val_epoch=False):
+        metrics = None
         for batch in tqdm(
             loader, desc=f"Running {name.capitalize()}, Epoch: {epoch}", leave=True
         ):
@@ -98,10 +98,17 @@ class TrainPermutation:
         self.model.perm_model.all_perm = self.model.perm_model.all_perm.to(self.device)
         for epoch in range(1, self.epochs + 1):
             self.model.train()
-            metrics = self.one_epoch(epoch, val_epoch=False)
+            metrics = self.one_epoch(
+                epoch, loader=self.train_loader, name="train", val_epoch=False
+            )
             with torch.no_grad():
                 self.model.eval()
-                self.one_epoch(epoch, val_epoch=True)
+                self.one_epoch(
+                    epoch, loader=self.val_loader, name="val", val_epoch=True
+                )
+                self.one_epoch(
+                    epoch, loader=self.test_loader, name="test", val_epoch=True
+                )
 
             for callback in self.callbacks:
                 if callback.early_stop():

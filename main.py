@@ -191,6 +191,7 @@ def get_config():
     parser.add_argument("--change_every", type=int, default=1)
     parser.add_argument("--gpu_num", type=str, default="0")
     parser.add_argument("--model_name", type=str, default="resnet18")
+    parser.add_argument("--val_size", type=int, default=5000)
     parser.add_argument("--num_workers", type=int, default=8)
     parser.add_argument("--num_generations", type=int, default=1)
     parser.add_argument("--init_max_prob", type=float, default=0.7)
@@ -264,6 +265,7 @@ def main():
         noise_mode=config["noise_mode"],
         num_workers=config["num_workers"],
         batch_size=config["batch_size"],
+        val_size=config["val_size"],
         train_transform=train_transform,
         with_sampler=config["with_sampler"],
     )
@@ -331,6 +333,7 @@ def main():
             optimizer=optimizer,
             train_loader=loaders["train"],
             val_loader=loaders["val"],
+            test_loader=loaders["test"],
             epochs=config["epochs"],
             criterion=criterion,
             gpu_num=config["gpu_num"],

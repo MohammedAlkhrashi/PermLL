@@ -37,8 +37,11 @@ class CallbackNoisyStatistics(Callback):
     def __init__(self, max_no_improvement=20) -> None:
         self.reset()
         self.best_clean_acc = 0
-        self.max_no_improvement = max_no_improvement
+        self.test_best_clean_acc = 0
         self.count_no_improvment = 0
+        self.test_count_no_improvment = 0
+
+        self.max_no_improvement = max_no_improvement
 
     def reset(self):
         self.running_loss = 0
@@ -86,6 +89,8 @@ class CallbackNoisyStatistics(Callback):
         pass
 
     def log_stats(self, name, epoch, metrics):
+        if self.total == 0:
+            return
         clean_acc = self.clean_running_correct / self.total
         noisy_acc = self.noisy_running_correct / self.total
 
@@ -99,6 +104,17 @@ class CallbackNoisyStatistics(Callback):
                 self.count_no_improvment += 1
 
             wandb.log({f"val_best_clean_acc": self.best_clean_acc})
+
+        if name == "test":
+            if self.count_no_improvment == 0:  # this epoch was best val acc so update
+                wandb.log({f"test_acc_on_best_val": clean_acc})
+            if clean_acc > self.test_best_clean_acc:
+                self.test_best_clean_acc = clean_acc
+                self.test_count_no_improvment = 0
+            else:
+                self.test_count_no_improvment += 1
+
+            wandb.log({f"test_best_clean_acc": self.test_best_clean_acc})
 
         wandb.log({f"{name}_clean_accuracy": clean_acc})
         wandb.log({f"{name}_noisy_accuracy": noisy_acc})
@@ -130,6 +146,8 @@ class CallbackPermutationStats(Callback):
         pass
 
     def on_epoch_end(self, metrics, epoch, name):
+        if name != 'train':
+            return
         alpha_label, sample_permuted, self.num_permuted_samples = permuted_samples(
             metrics
         )

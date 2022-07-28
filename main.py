@@ -12,6 +12,7 @@ from callbacks import (
     CallbackNoisyStatistics,
     CallbackPermutationStats,
     CallbackReweightSampler,
+    CallbackWarmupPerm,
     CosineAnnealingLRScheduler,
     IdentityCallback,
     OneCycleLearningRateScheduler,
@@ -249,6 +250,7 @@ def get_config():
     )
     parser.add_argument("--reweight_sampler", type=str2bool, default=False)
     parser.add_argument("--save_stats_on_end", type=str2bool, default=False)
+    parser.add_argument("--warmup", type=int, default=1)
 
     args = parser.parse_args()
     print(args)
@@ -323,6 +325,8 @@ def main():
             callbacks.append(CallbackReweightSampler(loaders["train"], num_classes))
         if config["save_stats_on_end"]:
             callbacks.append(CallbackLabelCorrectionStats())
+        if config["warmup"] != -1:
+            callbacks.append(CallbackWarmupPerm(model,warmup=config['warmup']))
 
         criterion: torch.nn.Module = create_loss_func(
             config["loss_func"], config["logits_softmax_mode"], config

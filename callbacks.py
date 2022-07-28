@@ -1,11 +1,13 @@
+import os
 from typing import List
+
 import torch
+from termcolor import colored
 from torch.utils.data import DataLoader
 
 import wandb
-import os
-from termcolor import colored
 from group_utils import GroupPicker
+from model import GroupModel
 
 
 class Callback:
@@ -146,7 +148,7 @@ class CallbackPermutationStats(Callback):
         pass
 
     def on_epoch_end(self, metrics, epoch, name):
-        if name != 'train':
+        if name != "train":
             return
         alpha_label, sample_permuted, self.num_permuted_samples = permuted_samples(
             metrics
@@ -374,6 +376,25 @@ class CallbackReweightSampler(Callback):
 
         new_weights = torch.DoubleTensor(weights)
         self.data_loader.sampler.weights = new_weights
+
+    def on_training_end(self, metrics):
+        pass
+
+
+class CallbackWarmupPerm(Callback):
+    def __init__(self, model: GroupModel, warmup):
+        self.model = model
+        self.warmup = warmup
+
+        assert not self.model.perm_model.disable_module, 'To use warmup enable do not disable perm'
+        self.model.perm_model.disable_module = True
+
+    def on_step_end(self, metrics, name):
+        pass
+
+    def on_epoch_end(self, metrics, epoch, name):
+        if epoch == self.warmup:
+            self.model.perm_model.disable_module = False
 
     def on_training_end(self, metrics):
         pass

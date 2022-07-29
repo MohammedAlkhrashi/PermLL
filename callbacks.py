@@ -383,18 +383,27 @@ class CallbackReweightSampler(Callback):
 
 class CallbackWarmupPerm(Callback):
     def __init__(self, model: GroupModel, warmup):
+        assert (
+            not model.perm_model.disable_module
+        ), "To use warmup enable do not disable perm"
+
         self.model = model
         self.warmup = warmup
+        self.step_count = 0
 
-        assert not self.model.perm_model.disable_module, 'To use warmup enable do not disable perm'
         self.model.perm_model.disable_module = True
 
     def on_step_end(self, metrics, name):
-        pass
+        if name != "train":
+            return
+
+        if self.warmup == self.step_count:
+            self.model.perm_model.disable_module = False
+        else:
+            self.step_count += 1
 
     def on_epoch_end(self, metrics, epoch, name):
-        if epoch == self.warmup:
-            self.model.perm_model.disable_module = False
+        pass
 
     def on_training_end(self, metrics):
         pass

@@ -156,12 +156,12 @@ def get_new_labels(
 
 def get_config():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--networks_lr", type=float, default=0.05)
-    parser.add_argument("--permutation_lr", type=float, default=80.0)
-    parser.add_argument("--weight_decay", type=float, default=0.0)
-    parser.add_argument("--momentum", type=float, default=0.0)
-    parser.add_argument("--epochs", type=int, default=200)
-    parser.add_argument("--batch_size", type=int, default=64)
+    parser.add_argument("--networks_lr", type=float, default=0.02)
+    parser.add_argument("--permutation_lr", type=float, default=2)
+    parser.add_argument("--weight_decay", type=float, default=0.0005)
+    parser.add_argument("--momentum", type=float, default=0.9)
+    parser.add_argument("--epochs", type=int, default=120)
+    parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--pretrained", type=str2bool, default=False)
     parser.add_argument("--disable_perm", type=str2bool, default=False)
     parser.add_argument(
@@ -171,7 +171,7 @@ def get_config():
         choices=["default", "one_cycle", "cosine", "adaptive", "step_lr"],
     )
     parser.add_argument("--grad_clip", type=float, default=-1)
-    parser.add_argument("--networks_optim", type=str, default="adam")
+    parser.add_argument("--networks_optim", type=str, default="sgd")
     parser.add_argument("--perm_optim", type=str, default="sgd")
     parser.add_argument("--label_smoothing", type=float, default=0)
     parser.add_argument(
@@ -180,7 +180,7 @@ def get_config():
         default="default",
         choices=["AutoAugment", "default"],
     )
-    parser.add_argument("--noise", type=float, default=0.3)
+    parser.add_argument("--noise", type=float, default=0.4)
     parser.add_argument(
         "--noise_mode",
         type=str,
@@ -191,11 +191,11 @@ def get_config():
     parser.add_argument("--num_groups", type=int, default=1)
     parser.add_argument("--change_every", type=int, default=1)
     parser.add_argument("--gpu_num", type=str, default="0")
-    parser.add_argument("--model_name", type=str, default="resnet18")
+    parser.add_argument("--model_name", type=str, default="resnet34")
     parser.add_argument("--val_size", type=int, default=5000)
     parser.add_argument("--num_workers", type=int, default=8)
     parser.add_argument("--num_generations", type=int, default=1)
-    parser.add_argument("--init_max_prob", type=float, default=0.7)
+    parser.add_argument("--init_max_prob", type=float, default=0.5)
     parser.add_argument(
         "--num_permutation_limit",
         type=int,
@@ -212,11 +212,11 @@ def get_config():
     parser.add_argument("--avg_before_perm", type=str2bool, default=False)
     parser.add_argument("--with_sampler", type=str2bool, default=False)
     parser.add_argument("--gamma", type=float, default=0.1)
-    parser.add_argument("--milestones", type=str2list, default="150")
+    parser.add_argument("--milestones", type=str2list, default="80")
     parser.add_argument(
         "--early_stopping",
         type=int,
-        default=20,
+        default=10,
         help="maximum number of iteration with no improvement, use -1 for no early stopping",
     )
     parser.add_argument(
@@ -250,7 +250,7 @@ def get_config():
     )
     parser.add_argument("--reweight_sampler", type=str2bool, default=False)
     parser.add_argument("--save_stats_on_end", type=str2bool, default=False)
-    parser.add_argument("--warmup", type=int, default=1)
+    parser.add_argument("--warmup", type=int, default=-1)
 
     args = parser.parse_args()
     print(args)
@@ -326,7 +326,7 @@ def main():
         if config["save_stats_on_end"]:
             callbacks.append(CallbackLabelCorrectionStats())
         if config["warmup"] != -1:
-            callbacks.append(CallbackWarmupPerm(model,warmup=config['warmup']))
+            callbacks.append(CallbackWarmupPerm(model, warmup=config["warmup"]))
 
         criterion: torch.nn.Module = create_loss_func(
             config["loss_func"], config["logits_softmax_mode"], config

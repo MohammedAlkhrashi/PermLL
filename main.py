@@ -216,7 +216,7 @@ def get_config():
     parser.add_argument(
         "--early_stopping",
         type=int,
-        default=10,
+        default=-1,
         help="maximum number of iteration with no improvement, use -1 for no early stopping",
     )
     parser.add_argument(

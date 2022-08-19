@@ -27,5 +27,5 @@ python main.py --noise=0.6 --dataset=cifar100 --init_max_prob=0.225 milestones=1
 ```
 ## Run Asymmetric Noise CIFAR-100
 ```train
-python main.py --noise=0.6 --dataset=cifar100 --init_max_prob=0.225 milestones=100 --model_name=resnet34 --networks_lr=0.02 --permutation_lr=6 --weight_decay=0.001 --noise_mode=asym
+python main.py --noise=0.2 --dataset=cifar100 --init_max_prob=0.225 milestones=100 --model_name=resnet34 --networks_lr=0.02 --permutation_lr=6 --weight_decay=0.001 --noise_mode=asym
 ```

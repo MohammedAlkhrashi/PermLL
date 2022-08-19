@@ -167,7 +167,7 @@ def get_config():
     parser.add_argument(
         "--lr_scheduler",
         type=str,
-        default="default",
+        default="step_lr",
         choices=["default", "one_cycle", "cosine", "adaptive", "step_lr"],
     )
     parser.add_argument("--grad_clip", type=float, default=-1)

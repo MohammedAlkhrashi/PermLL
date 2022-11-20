@@ -7,7 +7,6 @@ This repository is the official implementation of [On Robust Learning from Noisy
 ## Requirements and Setup
 
 ```setup
-git clone https://github.com/MohammedAlkhrashi/PermLL.git
 pip install -r requirements.txt
 cd PermLL
 ```

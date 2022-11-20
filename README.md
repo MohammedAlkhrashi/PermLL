@@ -2,13 +2,14 @@
 
 This repository is the official implementation of [On Robust Learning from Noisy Labels: A Permutation Layer Approach](). 
 
+![plot](./figures/method_digram.png)
 
-## Requirements
-
-To install requirements:
+## Requirements and Setup
 
 ```setup
+git clone
 pip install -r requirements.txt
+cd PermLL
 ```
 
 ## Run Symmetric Noise CIFAR-10

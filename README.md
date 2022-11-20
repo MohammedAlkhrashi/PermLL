@@ -2,7 +2,7 @@
 
 This repository is the official implementation of [On Robust Learning from Noisy Labels: A Permutation Layer Approach](). 
 
-![plot](./figures/method_digram.png)
+![plot](./figures/PermLL_digram.jpg)
 
 ## Requirements and Setup
 

@@ -1,6 +1,6 @@
 # On Robust Learning from Noisy Labels: A Permutation Layer Approach
 
-This repository is the official implementation of [On Robust Learning from Noisy Labels: A Permutation Layer Approach](). 
+This repository is the official implementation of [On Robust Learning from Noisy Labels: A Permutation Layer Approach](https://arxiv.org/abs/2211.15890). 
 
 ![plot](./figures/PermLL_digram.jpg)
 

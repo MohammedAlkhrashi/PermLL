@@ -129,6 +129,22 @@ def get_cloth1m_paths_labels(map_path, keys_path, root="./Cloth1M/"):
     return paths, labels
 
 
+def get_webvision_paths_labels(info_file, root, val=False):
+    with open(f"{root}/info/{info_file}") as file:
+        lines = file.readlines()
+    paths = []
+    labels = []
+    if val:
+        root = f"{root}/val_images_256"
+    for line in lines:
+        p, l = line.rstrip().split()
+        l = int(l)
+        if l < 50:
+            paths.append(f"{root}/{p}")
+            labels.append(l)
+    return paths, labels
+
+
 def prepare_dataset(dataset_name, noise, noise_mode, val_size):
     dataset_items = dict()
     dataset_items["train"] = dict()
@@ -274,6 +290,57 @@ def prepare_dataset(dataset_name, noise, noise_mode, val_size):
             [
                 transforms.Resize((256, 256)),
                 transforms.CenterCrop((224, 224)),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                ),
+            ]
+        )
+    elif dataset_name == "webvision":
+        dataset_items["num_classes"] = 50
+        data_folder = "./dataset/webvision"
+
+        train_paths, train_noisy_labels = get_webvision_paths_labels(
+            info_file="train_filelist_google.txt", root=data_folder
+        )
+        val_paths, val_clean_labels = get_webvision_paths_labels(
+            info_file="val_filelist.txt", root=data_folder, val=True
+        )
+
+        dataset_items["train"]["images"] = train_paths
+        dataset_items["train"]["clean_labels"] = torch.tensor(train_noisy_labels)
+        dataset_items["train"]["noisy_labels"] = torch.tensor(train_noisy_labels)
+
+        dataset_items["val"]["images"] = val_paths
+        dataset_items["val"]["clean_labels"] = torch.tensor(val_clean_labels)
+        dataset_items["val"]["noisy_labels"] = torch.tensor(val_clean_labels)
+
+        dataset_items["test"]["images"] = []
+        dataset_items["test"]["clean_labels"] = []
+        dataset_items["test"]["noisy_labels"] = []
+
+        dataset_items["train"]["transforms"] = transforms.Compose(
+            [
+                transforms.RandomCrop((227, 227)),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                ),
+            ]
+        )
+        dataset_items["val"]["transforms"] = transforms.Compose(
+            [
+                transforms.CenterCrop((227, 227)),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                ),
+            ]
+        )
+        dataset_items["test"]["transforms"] = transforms.Compose(
+            [
+                transforms.CenterCrop((227, 227)),
                 transforms.ToTensor(),
                 transforms.Normalize(
                     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]

@@ -11,6 +11,8 @@ from sklearn.metrics import confusion_matrix
 
 
 def print_transation_matrix(clean_labels, noisy_labels):
+    if len(clean_labels) == 0:
+        return
     cm = confusion_matrix(clean_labels.numpy(), noisy_labels.numpy())
     classes = clean_labels.unique()
     if len(classes) == 0:

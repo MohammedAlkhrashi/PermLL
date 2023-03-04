@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import KLDivLoss, L1Loss, MSELoss
 from torch.optim import SGD, Adam
+from inception_resnet_v2 import InceptionResNetV2
 
 from model import GroupModel
 from PreResNet import PreActResNet18, PreActResNet34
@@ -114,7 +115,6 @@ def create_group_optimizer(
     perm_optimizer,
     perm_momentum,
 ):
-
     networks_params = []
     permutations_params = []
     for name, param in model.named_parameters():
@@ -170,6 +170,8 @@ def model_from_name(model_name, num_classes, pretrained):
         return PreActResNet18(num_classes)
     elif model_name == "preactresnet34":
         return PreActResNet34(num_classes)
+    elif model_name == "inception_resnet":
+        return InceptionResNetV2(num_classes)
     else:
         print("WARNING: Model loaded from timm,ignore if expected")
         return timm.create_model(
@@ -189,7 +191,6 @@ def create_group_model(
     softmax_temp=1,
     logits_softmax_mode=False,
 ):
-
     models = nn.ModuleList()
     model_names_list = model_name.split(",")
     repeat_factor = num_of_networks / len(model_names_list)

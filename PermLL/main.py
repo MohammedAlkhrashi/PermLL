@@ -223,7 +223,7 @@ def get_config():
         "--dataset",
         type=str,
         default="cifar10",
-        choices=["cifar10", "cifar100", "cloth"],
+        choices=["cifar10", "cifar100", "cloth", "webvision"],
     )
     parser.add_argument("--perm_momentum", type=float, default=0)
     parser.add_argument("--with_adaptive_perm_lr", type=str2bool, default=False)

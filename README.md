@@ -33,5 +33,5 @@ python main.py --noise=0.2 --dataset=cifar100 --init_max_prob=0.225 --milestones
 
 ## Run on Clothing1M
 ```train
-python main.py --batch_size=64 --dataset=cloth --epochs=15 --gamma=0.1 --init_max_prob=0.275 --milestones=5,10,13 --model_name=resnet50 networks_lr=0.001 --permutation_lr=80 --warmup=500 --weight_decay=0.001 --with_sampler=t --reweight_sampler=t
+python main.py --batch_size=64 --dataset=cloth --epochs=15 --gamma=0.1 --init_max_prob=0.275 --milestones=5,10,13 --model_name=resnet50 --networks_lr=0.001 --permutation_lr=80 --warmup=500 --weight_decay=0.001 --with_sampler=t --reweight_sampler=t
 ```

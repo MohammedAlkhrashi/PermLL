@@ -15,27 +15,61 @@ from PreResNet import PreActResNet18, PreActResNet34
 from resnet import ResNet18, ResNet34
 
 
+import torch.nn.functional as F
+import torch
+import torch.nn as nn
+
+
+class elr_loss(nn.Module):
+    """
+    source: https://github.com/shengliu66/ELR/blob/master/ELR/model/loss.py
+    """
+
+    def __init__(self, num_examp, lam, num_classes=10, beta=0.7):
+        super(elr_loss, self).__init__()
+        self.num_classes = num_classes
+        self.USE_CUDA = torch.cuda.is_available()
+        self.target = (
+            torch.zeros(num_examp, self.num_classes).cuda(2)
+            if self.USE_CUDA
+            else torch.zeros(num_examp, self.num_classes)
+        )
+        self.beta = beta
+        self.lam = lam
+
+    def forward(self, index, output, unpermuted_output, label):
+        y_pred = F.softmax(unpermuted_output, dim=1)
+        y_pred = torch.clamp(y_pred, 1e-4, 1.0 - 1e-4)
+        y_pred_ = y_pred.data.detach()
+        # if self.target[index].sum() == 0:
+        #     self.target[index] = y_pred_
+        # else:
+        self.target[index] = self.beta * self.target[index] + (1 - self.beta) * (
+            (y_pred_) / (y_pred_).sum(dim=1, keepdim=True)
+        )
+        # print(output)
+        ce_loss = F.nll_loss(output, label)
+        elr_reg = ((1 - (self.target[index] * y_pred).sum(dim=1)).log()).mean()
+        final_loss = ce_loss + self.lam * elr_reg
+        return final_loss
+
+
 class GroupLoss(nn.Module):
     def __init__(self, criterion: nn.Module, equalize_losses):
         super().__init__()
-        self.criterion: nn.Module = criterion
         self.equalize_losses = equalize_losses
 
-    def forward(self, logits: List, target):
+        self.criterion = elr_loss(num_examp=50000, lam=0.2, num_classes=10, beta=0.7)
+
+    def forward(self, logits, unpermuted_logits, index, target):
         if isinstance(self.criterion, (MSELoss, L1Loss, KLDivLoss)):
             num_classes = logits[0].size(1)
             target = F.one_hot(target, num_classes=num_classes)
             target = target.float()
             assert logits[0].shape == target.shape
 
-        loss = 0
-        for logit in logits:
-            # all_losses works only for one network
-            all_losses = self.criterion(logit, target)
-            if self.equalize_losses:
-                all_losses *= 1 / all_losses * all_losses.mean()
-            loss += all_losses.mean()
-        return loss, all_losses.sort(dim=0)[0]
+        loss = self.criterion(index, logits[0], logits[0], target)
+        return loss, 0
 
 
 class NLLSmoothing(nn.Module):

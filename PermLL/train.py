@@ -54,7 +54,9 @@ class TrainPermutation:
             sample_index=batch["sample_index"],
             network_indices=next_group,
         )
-        loss, all_losses = self.criterion(output, batch["noisy_label"])
+        loss, all_losses = self.criterion(
+            output, unpermuted_logits, batch["sample_index"], batch["noisy_label"]
+        )
         if not val_step:
             loss.backward()
             self.perform_grad_clip()
